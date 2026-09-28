@@ -1,11 +1,12 @@
 import React from 'react';
-import { Eye, Edit3, ShieldCheck, Mail, Phone } from 'lucide-react';
+import { Eye, Edit3, ShieldCheck, Mail, Phone, Trash2 } from 'lucide-react';
 
 export const EmployeeTable = ({ 
   employees, 
   loading, 
   onEdit, 
   onView,
+  onDelete,
   onToggleStatus,
   statusUpdatingId,
   children
@@ -107,6 +108,17 @@ export const EmployeeTable = ({
                         >
                           <Edit3 size={15} />
                         </button>
+
+                        {/* DELETE BUTTON */}
+                        {onDelete && (
+                          <button
+                            onClick={() => onDelete(emp)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Delete Employee"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

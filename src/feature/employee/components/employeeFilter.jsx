@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, X, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import TableSearch from '../../../components/common/TableSearch.jsx';
 
 export const EmployeeFilter = ({
   searchTerm,
@@ -17,25 +18,12 @@ export const EmployeeFilter = ({
     <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 shadow-xs text-xs">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-center">
         {/* Search Input */}
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search Code, Name, Email..."
+        <div>
+          <TableSearch
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-gray-800 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-xs"
+            onChange={setSearchTerm}
+            placeholder="Search code, name, email..."
           />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold p-0.5 rounded-full hover:bg-gray-100 transition cursor-pointer"
-              title="Clear search"
-            >
-              <X size={13} />
-            </button>
-          )}
         </div>
 
         {/* Role Select */}

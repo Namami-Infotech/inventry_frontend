@@ -1,67 +1,64 @@
-import axios from 'axios';
+import axios from "axios";
+import { API_BASE_URL } from "../../../services/apiConfig.js";
 
-// const BASE_URL = 'http://localhost:5001/api/purchase-order';
+const BASE_URL = `${API_BASE_URL}/api/purchases`;
 
-const BASE_URL = window.location.hostname === 'localhost'
-            ? 'http://localhost:5001/api/purchase-order'
-            : 'https://www.namami-infotech.com/inventory/api/purchase-order';
-
-
-
-export const createPurchaseOrder = async (purchaseData) => {
-
-  console.log('createPurchaseOrder calleddwdwedwqewqewqe', purchaseData);
-  const response = await axios.post(`${BASE_URL}/add`, purchaseData, {
-    withCredentials: true,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  console.log('createPurchaseOrder response', response);
-  return response.data;
+export const getPurchases = async (params = {}) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(BASE_URL, {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-
-export const getPurchaseOrders = async ({
-  page = 1,
-  limit = 10,
-  search = '',
-  fromDate = '',
-  toDate = '',
-} = {}) => {
-  console.log('getPurchaseOrders called', {
-    page,
-    limit,
-    search,
-    fromDate,
-    toDate,
-  });
-
-  const response = await axios.get(`${BASE_URL}/all`, {
-    withCredentials: true,
-    params: {
-      page,
-      limit,
-      search: search || undefined,
-      fromDate: fromDate || undefined,
-      toDate: toDate || undefined,
-    },
-  });
-
-  console.log('getPurchaseOrders response', response);
-
-  return response.data;
+export const getPurchaseById = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// export const getPurchaseOrders = async () => {
-//   console.log('getPurchaseOrders called');
+export const getNextPurchaseNumber = async () => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/next-number`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
+};
 
-  
+export const createPurchase = async (data) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.post(`${BASE_URL}/add`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
+};
 
-//   const response = await axios.get(`${BASE_URL}/all`, {
-//     withCredentials: true,
-//   });
+// Aliases for legacy hooks
+export const createPurchaseOrder = createPurchase;
+export const getPurchaseOrders = getPurchases;
+export const getPurchaseOrderById = getPurchaseById;
 
-//   console.log('getPurchaseOrders response', response);
-//   return response.data;
-// };
+export const receivePurchase = async (id, data) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.post(`${BASE_URL}/${id}/receive`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
+};
+
+export const cancelPurchase = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.put(`${BASE_URL}/${id}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
+};

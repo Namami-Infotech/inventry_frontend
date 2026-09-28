@@ -30,7 +30,9 @@ import {
   toggleCategoryStatus,
   deleteCategory
 } from '../services/categoryService';
-import { Pagination } from '../../../components/common/pagination';
+import Pagination from '../../../components/common/pagination';
+import TableSearch from '../../../components/common/TableSearch.jsx';
+import DeleteConfirmation from '../../../components/common/DeleteConfirmation.jsx';
 
 export const BrandListPage = () => {
   // Active Main Tab: 'brands' or 'categories'
@@ -41,6 +43,14 @@ export const BrandListPage = () => {
   const [loadingBrands, setLoadingBrands] = useState(true);
   const [brandSearch, setBrandSearch] = useState('');
   const [brandStatusFilter, setBrandStatusFilter] = useState('');
+  const [brandPage, setBrandPage] = useState(1);
+  const [brandLimit, setBrandLimit] = useState(10);
+  const [brandPagination, setBrandPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
   // Brand Modal State
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
@@ -56,6 +66,14 @@ export const BrandListPage = () => {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categorySearch, setCategorySearch] = useState('');
   const [categoryStatusFilter, setCategoryStatusFilter] = useState('');
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categoryLimit, setCategoryLimit] = useState(10);
+  const [categoryPagination, setCategoryPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -66,6 +84,12 @@ export const BrandListPage = () => {
   const [categoryFormError, setCategoryFormError] = useState('');
   const [categoryStatusUpdatingId, setCategoryStatusUpdatingId] = useState(null);
 
+  // Delete Confirmation State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteType, setDeleteType] = useState('brand');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // ==========================================
   // FETCH BRANDS
   // ==========================================
@@ -73,13 +97,31 @@ export const BrandListPage = () => {
     try {
       setLoadingBrands(true);
       const res = await getAllBrands({
-        search: brandSearch,
-        status: brandStatusFilter,
+        page: brandPage,
+        limit: brandLimit,
+        search: brandSearch || undefined,
+        status: brandStatusFilter || undefined,
       });
       if (res && res.data) {
         setBrands(res.data);
+        if (res.pagination) {
+          setBrandPagination(res.pagination);
+        } else {
+          setBrandPagination({
+            currentPage: brandPage,
+            pageSize: brandLimit,
+            totalItems: res.data.length,
+            totalPages: Math.ceil(res.data.length / brandLimit) || 1
+          });
+        }
       } else if (Array.isArray(res)) {
         setBrands(res);
+        setBrandPagination({
+          currentPage: brandPage,
+          pageSize: brandLimit,
+          totalItems: res.length,
+          totalPages: Math.ceil(res.length / brandLimit) || 1
+        });
       } else {
         setBrands([]);
       }
@@ -88,7 +130,7 @@ export const BrandListPage = () => {
     } finally {
       setLoadingBrands(false);
     }
-  }, [brandSearch, brandStatusFilter]);
+  }, [brandPage, brandLimit, brandSearch, brandStatusFilter]);
 
   // ==========================================
   // FETCH CATEGORIES
@@ -97,13 +139,31 @@ export const BrandListPage = () => {
     try {
       setLoadingCategories(true);
       const res = await getAllCategories({
-        search: categorySearch,
-        status: categoryStatusFilter,
+        page: categoryPage,
+        limit: categoryLimit,
+        search: categorySearch || undefined,
+        status: categoryStatusFilter || undefined,
       });
       if (res && res.data) {
         setCategories(res.data);
+        if (res.pagination) {
+          setCategoryPagination(res.pagination);
+        } else {
+          setCategoryPagination({
+            currentPage: categoryPage,
+            pageSize: categoryLimit,
+            totalItems: res.data.length,
+            totalPages: Math.ceil(res.data.length / categoryLimit) || 1
+          });
+        }
       } else if (Array.isArray(res)) {
         setCategories(res);
+        setCategoryPagination({
+          currentPage: categoryPage,
+          pageSize: categoryLimit,
+          totalItems: res.length,
+          totalPages: Math.ceil(res.length / categoryLimit) || 1
+        });
       } else {
         setCategories([]);
       }
@@ -112,24 +172,15 @@ export const BrandListPage = () => {
     } finally {
       setLoadingCategories(false);
     }
-  }, [categorySearch, categoryStatusFilter]);
+  }, [categoryPage, categoryLimit, categorySearch, categoryStatusFilter]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (activeTab === 'brands') {
-        fetchBrands();
-      } else {
-        fetchCategories();
-      }
-    }, 250);
-    return () => clearTimeout(timer);
+    if (activeTab === 'brands') {
+      fetchBrands();
+    } else {
+      fetchCategories();
+    }
   }, [activeTab, fetchBrands, fetchCategories]);
-
-  // Initial load for both
-  useEffect(() => {
-    fetchBrands();
-    fetchCategories();
-  }, [fetchBrands, fetchCategories]);
 
   // ==========================================
   // BRAND HANDLERS
@@ -249,20 +300,10 @@ export const BrandListPage = () => {
     }
   };
 
-  const handleDeleteBrand = async (brand) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete brand "${brand.brand_name}" (${brand.brand_code || 'N/A'})? This action cannot be undone.`
-      )
-    ) {
-      try {
-        await deleteBrand(brand.brand_id);
-        fetchBrands();
-      } catch (err) {
-        console.error('Error deleting brand:', err);
-        alert(err.response?.data?.message || 'Failed to delete brand.');
-      }
-    }
+  const handleDeleteBrand = (brand) => {
+    setItemToDelete(brand);
+    setDeleteType('brand');
+    setDeleteModalOpen(true);
   };
 
   // ==========================================
@@ -297,7 +338,6 @@ export const BrandListPage = () => {
 
   const handleCategoryNameChange = (e) => {
     const rawVal = e.target.value;
-    // Allow only alphanumeric characters, spaces, and & . -
     const cleanVal = rawVal.replace(/[^a-zA-Z0-9\s&.-]/g, '');
     setCategoryNameInput(cleanVal);
     if (categoryFormError) setCategoryFormError('');
@@ -305,7 +345,6 @@ export const BrandListPage = () => {
 
   const handleCategoryCodeChange = (e) => {
     const rawVal = e.target.value;
-    // Allow uppercase alphanumeric, hyphens, and underscores
     const cleanVal = rawVal.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     setCategoryCodeInput(cleanVal);
   };
@@ -330,7 +369,6 @@ export const BrandListPage = () => {
       return;
     }
 
-    // Check for duplicate category name (case-insensitive)
     const isDuplicate = categories.some(
       (c) =>
         c.category_name?.trim().toLowerCase() === trimmedName.toLowerCase() &&
@@ -383,52 +421,50 @@ export const BrandListPage = () => {
     }
   };
 
-  const handleDeleteCategory = async (cat) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete category "${cat.category_name}" (${cat.category_code || 'N/A'})? This action cannot be undone.`
-      )
-    ) {
-      try {
-        await deleteCategory(cat.category_id);
-        fetchCategories();
-      } catch (err) {
-        console.error('Error deleting category:', err);
-        alert(err.response?.data?.message || 'Failed to delete category.');
+  const handleDeleteCategory = (cat) => {
+    setItemToDelete(cat);
+    setDeleteType('category');
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleteLoading(true);
+    try {
+      if (deleteType === 'brand') {
+        await deleteBrand(itemToDelete.brand_id);
+        setDeleteModalOpen(false);
+        setItemToDelete(null);
+        if (brands.length === 1 && brandPage > 1) {
+          setBrandPage((prev) => Math.max(1, prev - 1));
+        } else {
+          fetchBrands();
+        }
+      } else {
+        await deleteCategory(itemToDelete.category_id);
+        setDeleteModalOpen(false);
+        setItemToDelete(null);
+        if (categories.length === 1 && categoryPage > 1) {
+          setCategoryPage((prev) => Math.max(1, prev - 1));
+        } else {
+          fetchCategories();
+        }
       }
+    } catch (err) {
+      alert(err.response?.data?.message || `Failed to delete ${deleteType}.`);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   // Counters
-  const totalBrands = brands.length;
+  const totalBrands = brandPagination.totalItems || brands.length;
   const activeBrands = brands.filter((b) => (b.status || '').toLowerCase() === 'active').length;
   const inactiveBrands = totalBrands - activeBrands;
 
-  const totalCategories = categories.length;
+  const totalCategories = categoryPagination.totalItems || categories.length;
   const activeCategories = categories.filter((c) => (c.status || '').toLowerCase() === 'active').length;
   const inactiveCategories = totalCategories - activeCategories;
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, brandSearch, brandStatusFilter, categorySearch, categoryStatusFilter, brands.length, categories.length]);
-
-  const totalBrandItems = brands.length;
-  const totalBrandPages = Math.ceil(totalBrandItems / itemsPerPage) || 1;
-  const paginatedBrands = brands.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalCategoryItems = categories.length;
-  const totalCategoryPages = Math.ceil(totalCategoryItems / itemsPerPage) || 1;
-  const paginatedCategories = categories.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5 text-xs">
@@ -519,38 +555,33 @@ export const BrandListPage = () => {
 
         {/* Filter Controls */}
         <div className="flex items-center gap-2 flex-1 md:max-w-md md:justify-end">
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={activeTab === 'brands' ? 'Search by brand name or code...' : 'Search by category name or code...'}
+          <div className="flex-1">
+            <TableSearch
               value={activeTab === 'brands' ? brandSearch : categorySearch}
-              onChange={(e) => {
-                if (activeTab === 'brands') setBrandSearch(e.target.value);
-                else setCategorySearch(e.target.value);
+              onChange={(val) => {
+                if (activeTab === 'brands') {
+                  setBrandSearch(val);
+                  setBrandPage(1);
+                } else {
+                  setCategorySearch(val);
+                  setCategoryPage(1);
+                }
               }}
-              className="w-full pl-9 pr-8 py-2 text-xs text-gray-900 font-medium bg-slate-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white placeholder:text-gray-400 transition"
+              placeholder={activeTab === 'brands' ? 'Search by brand name or code...' : 'Search by category name or code...'}
             />
-            {((activeTab === 'brands' && brandSearch) || (activeTab === 'categories' && categorySearch)) && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeTab === 'brands') setBrandSearch('');
-                  else setCategorySearch('');
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-200/60 transition cursor-pointer"
-                title="Clear search"
-              >
-                <X size={13} />
-              </button>
-            )}
           </div>
 
           <select
             value={activeTab === 'brands' ? brandStatusFilter : categoryStatusFilter}
-            onChange={(e) =>
-              activeTab === 'brands' ? setBrandStatusFilter(e.target.value) : setCategoryStatusFilter(e.target.value)
-            }
+            onChange={(e) => {
+              if (activeTab === 'brands') {
+                setBrandStatusFilter(e.target.value);
+                setBrandPage(1);
+              } else {
+                setCategoryStatusFilter(e.target.value);
+                setCategoryPage(1);
+              }
+            }}
             className="text-xs bg-slate-50 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium shrink-0 cursor-pointer"
           >
             <option value="">All Status</option>
@@ -600,11 +631,11 @@ export const BrandListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedBrands.map((brand, idx) => {
+                  brands.map((brand, idx) => {
                     const isActive = (brand.status || '').toLowerCase() === 'active';
                     const isUpdatingThis = brandStatusUpdatingId === brand.brand_id;
                     const code = brand.brand_code || `BRD${String(brand.brand_id).padStart(3, '0')}`;
-                    const displayIndex = (currentPage - 1) * itemsPerPage + idx + 1;
+                    const displayIndex = (brandPage - 1) * brandLimit + idx + 1;
 
                     return (
                       <tr key={brand.brand_id} className="hover:bg-slate-50/80 transition-colors">
@@ -710,11 +741,11 @@ export const BrandListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedCategories.map((cat, idx) => {
+                  categories.map((cat, idx) => {
                     const isActive = (cat.status || '').toLowerCase() === 'active';
                     const isUpdatingThis = categoryStatusUpdatingId === cat.category_id;
                     const code = cat.category_code || `CAT${String(cat.category_id).padStart(3, '0')}`;
-                    const displayIndex = (currentPage - 1) * itemsPerPage + idx + 1;
+                    const displayIndex = (categoryPage - 1) * categoryLimit + idx + 1;
 
                     return (
                       <tr key={cat.category_id} className="hover:bg-slate-50/80 transition-colors">
@@ -800,22 +831,30 @@ export const BrandListPage = () => {
         </div>
 
         {/* Pagination Controls */}
-        {activeTab === 'brands' && !loadingBrands && totalBrandItems > 0 && (
+        {activeTab === 'brands' && !loadingBrands && brandPagination.totalItems > 0 && (
           <Pagination
-            currentPage={currentPage}
-            totalPages={totalBrandPages}
-            totalItems={totalBrandItems}
-            itemsPerPage={itemsPerPage}
-            onPageChange={(page) => setCurrentPage(page)}
+            currentPage={brandPagination.currentPage}
+            totalPages={brandPagination.totalPages}
+            totalItems={brandPagination.totalItems}
+            pageSize={brandPagination.pageSize}
+            onPageChange={(page) => setBrandPage(page)}
+            onPageSizeChange={(limit) => {
+              setBrandLimit(limit);
+              setBrandPage(1);
+            }}
           />
         )}
-        {activeTab === 'categories' && !loadingCategories && totalCategoryItems > 0 && (
+        {activeTab === 'categories' && !loadingCategories && categoryPagination.totalItems > 0 && (
           <Pagination
-            currentPage={currentPage}
-            totalPages={totalCategoryPages}
-            totalItems={totalCategoryItems}
-            itemsPerPage={itemsPerPage}
-            onPageChange={(page) => setCurrentPage(page)}
+            currentPage={categoryPagination.currentPage}
+            totalPages={categoryPagination.totalPages}
+            totalItems={categoryPagination.totalItems}
+            pageSize={categoryPagination.pageSize}
+            onPageChange={(page) => setCategoryPage(page)}
+            onPageSizeChange={(limit) => {
+              setCategoryLimit(limit);
+              setCategoryPage(1);
+            }}
           />
         )}
       </div>
@@ -1001,6 +1040,26 @@ export const BrandListPage = () => {
           </div>
         </div>
       )}
+
+      {/* 🌟 5. DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!deleteLoading) {
+            setDeleteModalOpen(false);
+            setItemToDelete(null);
+          }
+        }}
+        onConfirm={handleConfirmDelete}
+        title={deleteType === 'brand' ? 'Delete Brand?' : 'Delete Category?'}
+        itemName={
+          deleteType === 'brand'
+            ? itemToDelete?.brand_name
+            : itemToDelete?.category_name
+        }
+        message={`Are you sure you want to delete this ${deleteType}? This action cannot be undone.`}
+        loading={deleteLoading}
+      />
     </div>
   );
 };

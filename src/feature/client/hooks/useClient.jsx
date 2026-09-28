@@ -7,6 +7,14 @@ export function useClients() {
   const [clients, setClients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
   // Inline table filters
   const [inlineFilters, setInlineFilters] = useState({
@@ -24,14 +32,33 @@ export function useClients() {
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [page, limit, searchQuery]);
+
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+    setPage(1);
+  };
 
   const fetchClients = async () => {
     try {
-      const response = await getClients();
+      const response = await getClients({
+        page,
+        limit,
+        search: searchQuery || undefined
+      });
 
       if (response.success) {
-        setClients(response.data);
+        setClients(response.data || []);
+        if (response.pagination) {
+          setPagination(response.pagination);
+        } else {
+          setPagination({
+            currentPage: page,
+            pageSize: limit,
+            totalItems: response.data?.length || 0,
+            totalPages: Math.ceil((response.data?.length || 0) / limit) || 1
+          });
+        }
       }
     } catch (err) {
       console.error(err);
@@ -169,12 +196,18 @@ export function useClients() {
 
   return {
     clients: filteredClients,
-    totalCount: clients.length,
+    totalCount: pagination.totalItems,
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: handleSearchChange,
     inlineFilters,
     setInlineFilter: handleInlineFilterChange,
     clearInlineFilters: handleClearInlineFilters,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
+    fetchClients,
     selectedClient,
     isDrawerOpen,
     isModalOpen,

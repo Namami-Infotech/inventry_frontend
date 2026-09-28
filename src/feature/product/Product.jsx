@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Package,
@@ -15,7 +15,9 @@ import {
   Info,
   AlertCircle
 } from "lucide-react";
-import { Pagination } from "../../components/common/pagination";
+import Pagination from "../../components/common/pagination";
+import TableSearch from "../../components/common/TableSearch";
+import DeleteConfirmation from "../../components/common/DeleteConfirmation";
 
 const getBaseUrl = () => {
   return window.location.hostname === 'localhost'
@@ -31,7 +33,13 @@ const ProductTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -39,39 +47,77 @@ const ProductTab = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // Delete Confirmation state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     product_name: "",
     description: "",
-    fulfilment_mode: "site_assembly", // 'site_assembly' | 'in_house_manufacturing'
+    fulfilment_mode: "in_house_manufacturing",
   });
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(API_BASE);
-      const list = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.data?.data)
-          ? res.data.data
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm ? searchTerm.trim() : undefined,
+        fulfilment_mode: filterMode !== "all" ? filterMode : undefined
+      };
+      const res = await axios.get(API_BASE, { params });
+      const resData = res?.data;
+      const list = Array.isArray(resData?.data)
+        ? resData.data
+        : Array.isArray(resData)
+          ? resData
           : [];
       setProducts(list);
+
+      if (resData?.pagination) {
+        setPagination(resData.pagination);
+      } else {
+        setPagination({
+          currentPage,
+          pageSize: itemsPerPage,
+          totalItems: list.length,
+          totalPages: Math.ceil(list.length / itemsPerPage) || 1
+        });
+      }
     } catch (err) {
       console.error("Failed to fetch products:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, searchTerm, filterMode]);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
+
+  const handleSearchChange = (val) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  };
+
+  const handleFilterModeChange = (mode) => {
+    setFilterMode(mode);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1);
+  };
 
   const openCreateModal = () => {
     setEditingProduct(null);
     setFormData({
       product_name: "",
       description: "",
-      fulfilment_mode: "site_assembly",
+      fulfilment_mode: "in_house_manufacturing",
     });
     setFormError("");
     setShowModal(true);
@@ -82,7 +128,7 @@ const ProductTab = () => {
     setFormData({
       product_name: product.product_name || "",
       description: product.description || "",
-      fulfilment_mode: product.fulfilment_mode || "site_assembly",
+      fulfilment_mode: product.fulfilment_mode || "in_house_manufacturing",
     });
     setFormError("");
     setShowModal(true);
@@ -115,43 +161,32 @@ const ProductTab = () => {
     }
   };
 
-  const handleDeleteProduct = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete product "${name}"?`)) {
-      return;
-    }
+  const handleOpenDelete = (product) => {
+    setProductToDelete(product);
+    setDeleteModalOpen(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
     try {
-      await axios.delete(`${API_BASE}/${id}`);
-      await fetchProducts();
+      setDeleteLoading(true);
+      await axios.delete(`${API_BASE}/${productToDelete.id}`);
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
+
+      // Edge case: if last record on page > 1, shift back
+      if (currentPage > 1 && products.length <= 1) {
+        setCurrentPage((prev) => Math.max(1, prev - 1));
+      } else {
+        fetchProducts();
+      }
     } catch (err) {
       console.error("Failed to delete product:", err);
       alert(err.response?.data?.message || "Failed to delete product");
+    } finally {
+      setDeleteLoading(false);
     }
   };
-
-  // Filtered Products
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      (p.product_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.description || "").toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesMode =
-      filterMode === "all" ||
-      (p.fulfilment_mode || "site_assembly") === filterMode;
-
-    return matchesSearch && matchesMode;
-  });
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterMode, products.length]);
-
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   return (
     <div className="space-y-4">
@@ -162,53 +197,11 @@ const ProductTab = () => {
           <button
             type="button"
             onClick={() => setFilterMode("all")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2 ${filterMode === "all"
-                ? "text-blue-600 border-blue-600 font-semibold"
-                : "text-slate-500 border-transparent hover:text-slate-800"
-              }`}
+            className="pb-3 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2"
           >
             <span>All Products</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${filterMode === "all" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
-                }`}
-            >
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
               {products.length}
-            </span>
-          </button>
-
-          {/* TAB 2: SITE ASSEMBLY */}
-          <button
-            type="button"
-            onClick={() => setFilterMode("site_assembly")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2 ${filterMode === "site_assembly"
-                ? "text-blue-600 border-blue-600 font-semibold"
-                : "text-slate-500 border-transparent hover:text-slate-800"
-              }`}
-          >
-            <span>Site Assembly / Direct Dispatch</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${filterMode === "site_assembly" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
-                }`}
-            >
-              {products.filter((p) => (p.fulfilment_mode || "site_assembly") === "site_assembly").length}
-            </span>
-          </button>
-
-          {/* TAB 3: IN-HOUSE MANUFACTURING */}
-          <button
-            type="button"
-            onClick={() => setFilterMode("in_house_manufacturing")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2 ${filterMode === "in_house_manufacturing"
-                ? "text-blue-600 border-blue-600 font-semibold"
-                : "text-slate-500 border-transparent hover:text-slate-800"
-              }`}
-          >
-            <span>In-House Manufacturing</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${filterMode === "in_house_manufacturing" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
-                }`}
-            >
-              {products.filter((p) => p.fulfilment_mode === "in_house_manufacturing").length}
             </span>
           </button>
         </div>
@@ -216,16 +209,12 @@ const ProductTab = () => {
 
       {/* 🌟 2. SEARCH & ACTION BUTTON ROW */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-          <input
-            type="text"
-            placeholder="Search products by name or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          />
-        </div>
+        <TableSearch
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search products by name or description..."
+          className="w-full sm:w-80"
+        />
 
         <button
           type="button"
@@ -244,7 +233,7 @@ const ProductTab = () => {
             <Loader2 className="animate-spin text-blue-600 mb-2" size={28} />
             <p className="text-xs">Loading products...</p>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="p-12 text-center text-slate-400">
             <Package className="mx-auto mb-2 text-slate-300" size={36} />
             <p className="text-sm font-semibold text-slate-700">No products found</p>
@@ -267,9 +256,9 @@ const ProductTab = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedProducts.map((p, idx) => {
+                {products.map((p, idx) => {
                   const isMfg = p.fulfilment_mode === "in_house_manufacturing";
-                  const displayIndex = (currentPage - 1) * itemsPerPage + idx + 1;
+                  const displayIndex = (pagination.currentPage - 1) * pagination.pageSize + idx + 1;
                   return (
                     <tr key={p.id || idx} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 text-slate-400 font-medium">{displayIndex}</td>
@@ -307,7 +296,7 @@ const ProductTab = () => {
                             <Edit2 size={14} />
                           </button>
                           <button
-                            onClick={() => handleDeleteProduct(p.id, p.product_name)}
+                            onClick={() => handleOpenDelete(p)}
                             className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="Delete Product"
                           >
@@ -324,16 +313,30 @@ const ProductTab = () => {
         )}
 
         {/* Pagination Controls */}
-        {!loading && totalItems > 0 && (
+        {!loading && pagination.totalItems > 0 && (
           <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            itemsPerPage={itemsPerPage}
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
             onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={handlePageSizeChange}
           />
         )}
       </div>
+
+      {/* Common Delete Confirmation */}
+      <DeleteConfirmation
+        open={deleteModalOpen}
+        title="Delete Product?"
+        itemName={productToDelete?.product_name}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setProductToDelete(null);
+        }}
+        loading={deleteLoading}
+      />
 
       {/* CREATE / EDIT PRODUCT MODAL */}
       {showModal && (
@@ -367,7 +370,7 @@ const ProductTab = () => {
               {/* Product Name */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                  Product Name *
+                  Product Name xzdafsefadasdasfrae *
                 </label>
                 <input
                   type="text"
@@ -379,19 +382,22 @@ const ProductTab = () => {
                 />
               </div>
 
-              {/* Fulfilment Mode Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                  Fulfilment Mode *
+                  Selling Price *
                 </label>
-                <select
-                  value={formData.fulfilment_mode}
-                  onChange={(e) => setFormData({ ...formData, fulfilment_mode: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white font-semibold text-slate-900 cursor-pointer"
-                >
-                  <option value="site_assembly">Site Assembly</option>
-                  <option value="in_house_manufacturing">In-House Manufacturing</option>
-                </select>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={formData.selling_price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, selling_price: e.target.value })
+                  }
+                  placeholder="Enter selling price"
+                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
               </div>
 
               {/* Description */}

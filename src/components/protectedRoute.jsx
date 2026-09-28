@@ -17,18 +17,27 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
         let userRole = (user.role || '').toLowerCase().trim();
         if (userRole === 'sales' || userRole === 'sales manager') {
             userRole = 'order manager';
-        }
-        if (userRole === 'warehouse manager' || userRole === 'store manager') {
+        } else if (userRole === 'warehouse manager' || userRole === 'store manager') {
             userRole = 'store manager';
+        } else if (userRole.includes('shift') || userRole.includes('incharge')) {
+            userRole = 'shift incharge';
+        } else if (userRole === 'super admin' || userRole === 'admin') {
+            userRole = 'admin';
         }
+
         const normalizedAllowedRoles = allowedRoles.map(r => {
-            const role = r.toLowerCase().trim();
+            const role = (r || '').toLowerCase().trim();
             if (role === 'sales' || role === 'sales manager') return 'order manager';
             if (role === 'warehouse manager' || role === 'store manager') return 'store manager';
+            if (role.includes('shift') || role.includes('incharge')) return 'shift incharge';
+            if (role === 'super admin' || role === 'admin') return 'admin';
             return role;
         });
         
-        if (!normalizedAllowedRoles.includes(userRole)) {
+        // Admin always permitted
+        const hasAccess = userRole === 'admin' || normalizedAllowedRoles.includes(userRole);
+        
+        if (!hasAccess) {
             console.warn(`Access blocked: Role '${userRole}' is not allowed on this route.`);
             return <Navigate to="/login" replace />; 
         }

@@ -1,114 +1,68 @@
-import axios from 'axios';
+import axios from "axios";
+import { API_BASE_URL } from "../../../services/apiConfig.js";
 
-const getBaseUrl = () => {
-  return window.location.hostname === 'localhost'
-    ? 'http://localhost:5001/api/production'
-    : 'https://www.namami-infotech.com/inventory/api/production';
+const BASE_URL = `${API_BASE_URL}/api/production`;
+
+export const getProductions = async (params = {}) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(BASE_URL, {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-const BASE_URL = getBaseUrl();
-
-// Fetch all production tasks with filters
-export const getAllProductionTasks = async (params = {}) => {
-  const response = await axios.get(BASE_URL, {
-    params,
-    withCredentials: true,
-  });
-  return response.data;
+export const getProductionById = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// Fetch next suggested task ID (e.g. PRD-001)
-export const getNextTaskId = async () => {
-  const response = await axios.get(`${BASE_URL}/next-id`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getPlanningForProduction = async (planningId) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/planning-prefill/${planningId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// Fetch single production task by ID
-export const getProductionTaskById = async (id) => {
-  const response = await axios.get(`${BASE_URL}/${id}`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getDispatchedRequestsForProduction = async () => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${API_BASE_URL}/api/material-requests/dispatched-for-production`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// Create a new production task
-export const createProductionTask = async (taskData) => {
-  const response = await axios.post(BASE_URL, taskData, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
+export const getNextProductionCode = async () => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/next-code`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// Update production task details
-export const updateProductionTask = async (id, taskData) => {
-  const response = await axios.put(`${BASE_URL}/${id}`, taskData, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
+export const createProduction = async (data) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.post(`${BASE_URL}/add`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-// Issue Materials from Store to Production
-export const issueMaterialsToProduction = async (id, payload = {}) => {
-  const response = await axios.post(`${BASE_URL}/${id}/issue-materials`, payload, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Reject Production Requisition from Store
-export const rejectProductionRequisition = async (id, payload = {}) => {
-  const response = await axios.post(`${BASE_URL}/${id}/reject-requisition`, payload, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Record Finished Goods & Output
-export const recordFinishedGoods = async (id, payload) => {
-  const response = await axios.post(`${BASE_URL}/${id}/record-output`, payload, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Update Production Status
-export const updateProductionStatus = async (id, status) => {
-  const response = await axios.patch(`${BASE_URL}/${id}/status`, { status }, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Accept Finished Goods Inward in Store
-export const acceptFinishedGoodsInward = async (id) => {
-  const response = await axios.post(`${BASE_URL}/${id}/accept-finished-goods`, {}, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Accept Returned Raw Materials in Store
-export const acceptReturnedMaterials = async (id) => {
-  const response = await axios.post(`${BASE_URL}/${id}/accept-returns`, {}, {
-    withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return response.data;
-};
-
-// Delete Production Task
-export const deleteProductionTask = async (id) => {
-  const response = await axios.delete(`${BASE_URL}/${id}`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const cancelProduction = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.put(`${BASE_URL}/${id}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };

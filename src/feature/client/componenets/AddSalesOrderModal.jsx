@@ -346,37 +346,6 @@ export const AddSalesOrderModal = ({
       newErrors.client = "Please select a client.";
     }
 
-    if (orderType === 'site_assembly') {
-      // Assigned Engineer Validation
-      if (!selectedProjectIncharge || selectedProjectIncharge === 'NA') {
-        newErrors.projectIncharge = "Please select an Assigned Site Engineer.";
-      }
-
-      // Project Name Validation for Site Assembly
-      const cleanProject = projectName.trim();
-      if (!cleanProject) {
-        newErrors.projectName = "Project Name is required for Site Assembly.";
-      } else if (cleanProject.length < 3) {
-        newErrors.projectName = "Project Name must be at least 3 characters.";
-      } else if (cleanProject.includes('//') || cleanProject.includes('\\')) {
-        newErrors.projectName = "Project Name cannot contain slashes.";
-      } else if (!/^[a-zA-Z0-9\s&.,'()_-]+$/.test(cleanProject)) {
-        newErrors.projectName = "Project Name contains invalid special characters.";
-      }
-
-      // Site Contact Person Validation
-      if (siteContactPerson.trim() && !/^[a-zA-Z\s.]+$/.test(siteContactPerson.trim())) {
-        newErrors.siteContactPerson = "Contact person name can only contain letters, spaces, and dots.";
-      }
-
-      // Site Contact Phone Validation
-      if (siteContactNumber.trim()) {
-        if (!/^[6-9]\d{9}$/.test(siteContactNumber.trim())) {
-          newErrors.siteContactNumber = "Please enter a valid 10-digit mobile number starting with 6-9.";
-        }
-      }
-    }
-
     // PO Number Validation
     const cleanPo = poNumber.trim();
     if (!cleanPo) {
@@ -531,112 +500,6 @@ export const AddSalesOrderModal = ({
         {/* Modal Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1 text-xs">
 
-          {/* Section: Order Fulfilment Type Switcher */}
-          <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 p-3.5 border border-blue-200 rounded-xl">
-            <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-2">
-              Select Order Type / Fulfilment Mode *
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setOrderType('in_house');
-                  setSelectedProjectIncharge('NA');
-                  setItems([{ id: Date.now(), productName: '', productId: '', description: '', qty: 1 }]);
-                }}
-                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition cursor-pointer ${orderType === 'in_house'
-                    ? 'bg-white border-blue-600 shadow-sm ring-2 ring-blue-500/20'
-                    : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'
-                  }`}
-              >
-                <div className={`p-2 rounded-lg ${orderType === 'in_house' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                  <Building2 size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
-                    In-House Production
-                    {orderType === 'in_house' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold">Selected</span>}
-                  </div>
-                  <div className="text-[11px] text-gray-500">Factory manufactured product direct delivery (No site engineer)</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOrderType('site_assembly');
-                  if (selectedProjectIncharge === 'NA') setSelectedProjectIncharge('');
-                  setItems([{ id: Date.now(), productName: '', productId: '', description: '', qty: 1 }]);
-                }}
-                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition cursor-pointer ${orderType === 'site_assembly'
-                    ? 'bg-white border-blue-600 shadow-sm ring-2 ring-blue-500/20'
-                    : 'bg-white/60 border-gray-200 hover:bg-white text-gray-600'
-                  }`}
-              >
-                <div className={`p-2 rounded-lg ${orderType === 'site_assembly' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                  <Wrench size={18} />
-                </div>
-                <div>
-                  <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
-                    Site Assembly Project
-                    {orderType === 'site_assembly' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold">Selected</span>}
-                  </div>
-                  <div className="text-[11px] text-gray-500">Site installation with BOM items & assigned Site Engineer</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Section 0: Project Incharge / Engineer Selection (ONLY for Site Assembly) */}
-          {orderType === 'site_assembly' && (
-            <div className="bg-blue-50/60 p-4 border border-blue-200 rounded-xl space-y-2 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-900 uppercase tracking-wider">
-                <UserCheck size={16} className="text-blue-600" />
-                <span>Project Incharge / Site Engineer *</span>
-              </div>
-              <select
-                value={selectedProjectIncharge}
-                onChange={(e) => {
-                  setSelectedProjectIncharge(e.target.value);
-                  if (errors.projectIncharge) setErrors((prev) => ({ ...prev, projectIncharge: null }));
-                }}
-                className={`w-full px-3 py-2.5 border rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition text-gray-900 font-medium cursor-pointer ${errors.projectIncharge ? 'border-rose-400 bg-rose-50/20' : 'border-gray-300'
-                  }`}
-              >
-                <option value="" className="text-gray-500">
-                  {loadingIncharges ? "Loading Incharges..." : "-- Select Site Engineer --"}
-                </option>
-
-                {!loadingIncharges && projectIncharges.length > 0 ? (
-                  projectIncharges.map((emp) => (
-                    <option
-                      key={emp.id}
-                      value={emp.id}
-                      className="text-gray-900"
-                    >
-                      {emp.employee_name}
-                      {emp.employee_code
-                        ? ` (${emp.employee_code})`
-                        : ""}
-                      {emp.location_branch
-                        ? ` - ${emp.location_branch}`
-                        : ""}
-                    </option>
-                  ))
-                ) : !loadingIncharges ? (
-                  <option value="" disabled className="text-gray-500">
-                    No Site Engineers Found
-                  </option>
-                ) : null}
-              </select>
-              {errors.projectIncharge && (
-                <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
-                  <AlertCircle size={12} /> {errors.projectIncharge}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Section 1: Client Selection & Information */}
           <div className="bg-gray-50/70 p-4 border border-gray-200 rounded-xl space-y-4">
             <div className="flex items-center gap-2 text-xs font-bold text-gray-800 uppercase tracking-wider">
@@ -746,108 +609,7 @@ export const AddSalesOrderModal = ({
             )}
           </div>
 
-          {/* Section 2: Project & Site Execution Details (ONLY for Site Assembly) */}
-          {orderType === 'site_assembly' && (
-            <div className="p-4 border border-gray-200 rounded-xl space-y-4 bg-gray-50/40">
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-800 uppercase tracking-wider">
-                <Wrench size={15} className="text-blue-600" />
-                <span>Project & Site Details *</span>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Project Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 50kW Rooftop - Apex Hospital"
-                    value={projectName}
-                    onChange={(e) => {
-                      // Prevent special characters like @, #, $, %, slashes live
-                      const rawVal = e.target.value;
-                      const sanitizedVal = rawVal.replace(/[^a-zA-Z0-9\s&.,'()_-]/g, '').replace(/[/\\~`!@#$%^*+={}[\]|:;"<>?]/g, '');
-                      setProjectName(sanitizedVal);
-
-                      if (!sanitizedVal.trim()) {
-                        setErrors((prev) => ({ ...prev, projectName: "Project Name is required." }));
-                      } else if (sanitizedVal.trim().length < 3) {
-                        setErrors((prev) => ({ ...prev, projectName: "Project Name must be at least 3 characters." }));
-                      } else {
-                        setErrors((prev) => ({ ...prev, projectName: null }));
-                      }
-                    }}
-                    onBlur={() => {
-                      if (!projectName.trim()) {
-                        setErrors((prev) => ({ ...prev, projectName: "Project Name is required." }));
-                      } else if (projectName.trim().length < 3) {
-                        setErrors((prev) => ({ ...prev, projectName: "Project Name must be at least 3 characters." }));
-                      }
-                    }}
-                    required
-                    className={`w-full text-black p-2.5 border rounded-lg text-xs bg-white ${errors.projectName ? 'border-rose-400 bg-rose-50/20' : 'border-gray-300'
-                      }`}
-                  />
-                  {errors.projectName && (
-                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
-                      <AlertCircle size={12} /> {errors.projectName}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Site Contact Person</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Rajesh Sharma"
-                    value={siteContactPerson}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
-                      setSiteContactPerson(val);
-                      if (val.trim() && !/^[a-zA-Z\s.]+$/.test(val.trim())) {
-                        setErrors((prev) => ({ ...prev, siteContactPerson: "Letters, spaces, and dots only." }));
-                      } else {
-                        setErrors((prev) => ({ ...prev, siteContactPerson: null }));
-                      }
-                    }}
-                    className={`w-full text-black p-2.5 border rounded-lg text-xs bg-white ${errors.siteContactPerson ? 'border-rose-400 bg-rose-50/20' : 'border-gray-300'
-                      }`}
-                  />
-                  {errors.siteContactPerson && (
-                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
-                      <AlertCircle size={12} /> {errors.siteContactPerson}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Site Contact Phone</label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    placeholder="e.g. 9876543210"
-                    value={siteContactNumber}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setSiteContactNumber(val);
-                      if (val && !/^[6-9]\d{0,9}$/.test(val)) {
-                        setErrors((prev) => ({ ...prev, siteContactNumber: "Must start with 6, 7, 8, or 9." }));
-                      } else if (val && val.length > 0 && val.length < 10) {
-                        setErrors((prev) => ({ ...prev, siteContactNumber: "Must be exactly 10 digits." }));
-                      } else {
-                        setErrors((prev) => ({ ...prev, siteContactNumber: null }));
-                      }
-                    }}
-                    className={`w-full text-black p-2.5 border rounded-lg text-xs bg-white ${errors.siteContactNumber ? 'border-rose-400 bg-rose-50/20' : 'border-gray-300'
-                      }`}
-                  />
-                  {errors.siteContactNumber && (
-                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
-                      <AlertCircle size={12} /> {errors.siteContactNumber}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Section 3: Order Metadata & PO Information */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1121,14 +883,9 @@ export const AddSalesOrderModal = ({
                       <option value="">
                         {loadingProducts
                           ? "Loading products..."
-                          : `-- Select ${orderType === 'in_house' ? 'In-House Manufactured Product' : 'Site Project Product'} --`}
+                          : "-- Select Product --"}
                       </option>
-                      {products
-                        .filter((p) => {
-                          const isInHouse = (p.fulfilment_mode || 'site_assembly') === 'in_house_manufacturing';
-                          return orderType === 'in_house' ? isInHouse : !isInHouse;
-                        })
-                        .map((p) => {
+                      {products.map((p) => {
                           const stockNum = Number(p.store_stock ?? 0);
                           return (
                             <option
@@ -1137,9 +894,7 @@ export const AddSalesOrderModal = ({
                               className={stockNum <= 0 ? 'text-amber-600 font-medium' : 'text-gray-900'}
                             >
                               {p.product_name}
-                              {orderType === 'in_house'
-                                ? ` (Stock: ${stockNum})`
-                                : ''}
+                              {stockNum > 0 ? ` (Stock: ${stockNum})` : ''}
                             </option>
                           );
                         })}

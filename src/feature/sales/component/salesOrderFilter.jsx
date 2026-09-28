@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, Plus, Download } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
+import TableSearch from '../../../components/common/TableSearch.jsx';
 
 export const SalesOrderFilter = ({
   searchQuery,
@@ -11,25 +12,13 @@ export const SalesOrderFilter = ({
 }) => {
   return (
     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row gap-3 sm:items-center justify-between text-xs">
-      {/* Global Search Bar (Search by Client Name Only) */}
-      <div className="w-full sm:w-auto flex-1 sm:max-w-md relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by Client Name..."
+      {/* Global Search Bar */}
+      <div className="w-full sm:w-auto flex-1 sm:max-w-md">
+        <TableSearch
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          onChange={setSearchQuery}
+          placeholder="Search by client, PO, product, project..."
         />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs font-bold"
-          >
-            ✕
-          </button>
-        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">

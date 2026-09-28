@@ -5,7 +5,7 @@ import { SalesOrderFilter } from '../component/salesOrderFilter';
 import { SalesOrderTable } from '../component/salesOrderTable';
 import { getClients } from "../../client/services/clientService";
 import { createSalesOrder } from '../../client/services/salesOrderService';
-import { Pagination } from '../../../components/common/pagination';
+import Pagination from '../../../components/common/pagination';
 import { ViewSalesOrderItemsModal } from '../../client/componenets/ViewSalesOrderItemsModal';
 import { exportSalesOrdersReport } from '../../../utils/exportReport';
 
@@ -25,6 +25,11 @@ export const SalesOrderPage = () => {
     resetFilters,
     addOrder,
     updateOrderStatus,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
   } = useSalesOrder();
 
   // Listen to navigation state filter (e.g. from Dashboard click on Confirmed or Pending)
@@ -43,10 +48,6 @@ export const SalesOrderPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Pagination state (client-side)
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
   const [clients, setClients] = useState([]);
 
   useEffect(() => {
@@ -63,11 +64,6 @@ export const SalesOrderPage = () => {
 
     fetchClients();
   }, []);
-
-  // Reset to first page when orders, search query, or inline filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, inlineFilters, orders.length]);
 
   const handleSelectOrder = (order) => {
     setSelectedOrder(order);
@@ -128,7 +124,7 @@ export const SalesOrderPage = () => {
       ) : (
         <>
           <SalesOrderTable
-            orders={orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)}
+            orders={orders}
             inlineFilters={inlineFilters}
             setInlineFilter={setInlineFilter}
             clearInlineFilters={clearInlineFilters}
@@ -138,11 +134,15 @@ export const SalesOrderPage = () => {
             userRole={userRole}
           >
             <Pagination
-              currentPage={currentPage}
-              totalPages={Math.max(1, Math.ceil((orders?.length || 0) / itemsPerPage))}
-              totalItems={orders?.length || 0}
-              itemsPerPage={itemsPerPage}
-              onPageChange={(p) => setCurrentPage(Math.max(1, Math.min(Math.max(1, Math.ceil((orders?.length || 0) / itemsPerPage)), p)))}
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setLimit(newSize);
+                setPage(1);
+              }}
             />
           </SalesOrderTable>
         </>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Plus,
-  Search,
   Filter,
   Layers,
   Eye,
@@ -21,7 +20,9 @@ import {
 import { fetchQuotations, deleteQuotation, updateQuotationStatus } from '../services/quotationService';
 import { CreateQuotationModal } from '../components/CreateQuotationModal';
 import { ViewQuotationModal } from '../components/ViewQuotationModal';
-import { Pagination } from '../../../components/common/pagination';
+import Pagination from '../../../components/common/pagination';
+import TableSearch from '../../../components/common/TableSearch.jsx';
+import DeleteConfirmation from '../../../components/common/DeleteConfirmation.jsx';
 
 export const QuotationListPage = () => {
   const [quotations, setQuotations] = useState([]);
@@ -35,25 +36,46 @@ export const QuotationListPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedQuotationId, setSelectedQuotationId] = useState(null);
   const [sourceQuotationForRevision, setSourceQuotationForRevision] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadQuotations = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await fetchQuotations({
-        search: searchQuery,
-        status: statusFilter,
-        orderType: typeFilter,
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery || undefined,
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        orderType: typeFilter !== 'All' ? typeFilter : undefined,
       });
       if (res?.success && Array.isArray(res.data)) {
         setQuotations(res.data);
+        if (res.pagination) {
+          setPagination(res.pagination);
+        } else {
+          setPagination({
+            currentPage,
+            pageSize: itemsPerPage,
+            totalItems: res.data.length,
+            totalPages: Math.ceil(res.data.length / itemsPerPage) || 1
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to load quotations:', err);
@@ -65,16 +87,12 @@ export const QuotationListPage = () => {
 
   useEffect(() => {
     loadQuotations();
-  }, [statusFilter, typeFilter]);
+  }, [currentPage, itemsPerPage, searchQuery, statusFilter, typeFilter]);
 
-  // Debounced search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      loadQuotations();
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  const handleSearchChange = (term) => {
+    setSearchQuery(term);
+    setCurrentPage(1);
+  };
 
   const handleOpenCreate = () => {
     setSourceQuotationForRevision(null);
@@ -91,16 +109,32 @@ export const QuotationListPage = () => {
     setIsViewModalOpen(true);
   };
 
-  const handleDelete = async (id, e) => {
+  const handleDeleteClick = (quotation, e) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this quotation?')) return;
+    setSelectedQuotation(quotation);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedQuotation) return;
+    setDeleteLoading(true);
     try {
-      const res = await deleteQuotation(id);
+      const res = await deleteQuotation(selectedQuotation.id);
       if (res?.success) {
-        setQuotations((prev) => prev.filter((q) => q.id !== id));
+        setDeleteModalOpen(false);
+        setSelectedQuotation(null);
+        if (quotations.length === 1 && currentPage > 1) {
+          setCurrentPage(prev => Math.max(1, prev - 1));
+        } else {
+          loadQuotations();
+        }
+      } else {
+        alert(res?.message || 'Failed to delete quotation.');
       }
     } catch (err) {
       alert(err?.response?.data?.message || 'Failed to delete quotation.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -206,14 +240,11 @@ export const QuotationListPage = () => {
       {/* Search & Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Search */}
-        <div className="relative w-full sm:w-80">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by Quotation No, Client, Project..."
+        <div className="w-full sm:w-80">
+          <TableSearch
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500"
+            onChange={handleSearchChange}
+            placeholder="Search by Quotation No, Client, Project..."
           />
         </div>
 
@@ -283,14 +314,14 @@ export const QuotationListPage = () => {
                     Loading quotations...
                   </td>
                 </tr>
-              ) : paginatedList.length === 0 ? (
+              ) : quotations.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-gray-400 font-medium">
-                    No quotations found. Click "Create Quotation" to add one.
+                    {searchQuery ? `No quotations found matching "${searchQuery}".` : 'No quotations found. Click "Create Quotation" to add one.'}
                   </td>
                 </tr>
               ) : (
-                paginatedList.map((q) => (
+                quotations.map((q) => (
                   <tr
                     key={q.id}
                     onClick={() => handleViewQuotation(q.id)}
@@ -386,7 +417,7 @@ export const QuotationListPage = () => {
                         {/* Delete Button (Drafts only) */}
                         {q.status === 'Draft' && (
                           <button
-                            onClick={(e) => handleDelete(q.id, e)}
+                            onClick={(e) => handleDeleteClick(q, e)}
                             className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer"
                             title="Delete Draft"
                           >
@@ -403,20 +434,32 @@ export const QuotationListPage = () => {
         </div>
 
         {/* Pagination */}
-        {quotations.length > itemsPerPage && (
-          <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-            <span className="text-gray-500 text-xs">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-              {Math.min(currentPage * itemsPerPage, quotations.length)} of {quotations.length} quotations
-            </span>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pagination.pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setItemsPerPage(newSize);
+            setCurrentPage(1);
+          }}
+        />
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedQuotation(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Quotation Draft"
+        itemName={selectedQuotation?.quotation_number}
+        message="Are you sure you want to delete this draft quotation? This action cannot be undone."
+        loading={deleteLoading}
+      />
 
       {/* Create / Revision Modal */}
       {isCreateModalOpen && (

@@ -1,6 +1,5 @@
-// src/features/clients/components/ClientFilters.jsx
-
 import React from 'react';
+import TableSearch from '../../../components/common/TableSearch.jsx';
 
 export const ClientFilters = ({
   searchQuery,
@@ -10,23 +9,12 @@ export const ClientFilters = ({
 }) => {
   return (
     <div className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-xs flex flex-wrap gap-3 justify-between items-center">
-      <div className="flex-1 min-w-[260px] relative">
-        <input
-          type="text"
+      <div className="flex-1 min-w-[260px]">
+        <TableSearch
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by Company Name..."
-          className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          onChange={setSearchQuery}
+          placeholder="Search by company, contact person, GSTIN..."
         />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs font-bold"
-          >
-            ✕
-          </button>
-        )}
       </div>
 
       {hasActiveFilters && (

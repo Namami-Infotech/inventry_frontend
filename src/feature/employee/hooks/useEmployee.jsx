@@ -38,25 +38,63 @@ export const useEmployee = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
+
+  const handleSearchChange = useCallback((term) => {
+    setSearchTerm(term);
+    setPage(1);
+  }, []);
 
   // Fetch employees
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
-      if (roleFilter) params.role = roleFilter;
-      if (statusFilter) params.status = statusFilter;
+      const params = {
+        page,
+        limit,
+        search: searchTerm || undefined,
+        role: roleFilter || undefined,
+        status: statusFilter || undefined,
+      };
 
-      const data = await getAllEmployees(params);
-      setEmployees(Array.isArray(data) ? data : data.data || []);
+      const res = await getAllEmployees(params);
+      if (res && res.data) {
+        setEmployees(res.data);
+        if (res.pagination) {
+          setPagination(res.pagination);
+        } else {
+          setPagination({
+            currentPage: page,
+            pageSize: limit,
+            totalItems: res.data.length,
+            totalPages: Math.ceil(res.data.length / limit) || 1
+          });
+        }
+      } else if (Array.isArray(res)) {
+        setEmployees(res);
+        setPagination({
+          currentPage: page,
+          pageSize: limit,
+          totalItems: res.length,
+          totalPages: Math.ceil(res.length / limit) || 1
+        });
+      } else {
+        setEmployees([]);
+      }
     } catch (error) {
       console.error('Error fetching employees:', error);
       setEmployees([]);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, roleFilter, statusFilter]);
+  }, [page, limit, searchTerm, roleFilter, statusFilter]);
 
   // Fetch roles from backend
   const fetchRoles = useCallback(async () => {
@@ -225,22 +263,25 @@ export const useEmployee = () => {
   }, [fetchEmployees]);
 
   const handleDelete = useCallback(async (id) => {
-    if (!window.confirm('Are you sure you want to delete this employee?')) {
-      return;
-    }
-
     try {
-      await deleteEmployee(id);
-      await fetchEmployees();
+      const res = await deleteEmployee(id);
+      if (employees.length === 1 && page > 1) {
+        setPage(prev => Math.max(1, prev - 1));
+      } else {
+        await fetchEmployees();
+      }
+      return res || { success: true };
     } catch (error) {
       console.error('Error deleting employee:', error);
+      throw error;
     }
-  }, [fetchEmployees]);
+  }, [employees.length, page, fetchEmployees]);
 
   const handleClearFilters = useCallback(() => {
     setSearchTerm('');
     setRoleFilter('');
     setStatusFilter('');
+    setPage(1);
   }, []);
 
   return {
@@ -249,12 +290,18 @@ export const useEmployee = () => {
     roles,
     rolesLoading,
     searchTerm,
-    setSearchTerm,
+    setSearchTerm: handleSearchChange,
     roleFilter,
-    setRoleFilter,
+    setRoleFilter: (val) => { setRoleFilter(val); setPage(1); },
     statusFilter,
-    setStatusFilter,
+    setStatusFilter: (val) => { setStatusFilter(val); setPage(1); },
     handleClearFilters,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
+    fetchEmployees,
     isModalOpen,
     editingId,
     formData,

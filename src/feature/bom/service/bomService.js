@@ -57,16 +57,20 @@ export const deleteBOM = async (id) => {
 
 // Get products
 export const getProducts = async () => {
-    const response = await axios.get(PRODUCTS_URL, { withCredentials: true });
+    const token = localStorage.getItem("authToken");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await axios.get(PRODUCTS_URL, { headers, withCredentials: true });
     return response.data;
 };
 
 // Create product
 export const createProduct = async (payload) => {
+    const token = localStorage.getItem("authToken");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await axios.post(
         `${PRODUCTS_URL}/add`,
         payload,
-        { withCredentials: true }
+        { headers, withCredentials: true }
     );
     return response.data;
 };

@@ -8,16 +8,12 @@ import { ClientQuickDrawer } from '../componenets/clientQuickDrawer';
 import { ClientFormModal } from '../componenets/clientFormodel';
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import {useState, useEffect } from "react";
-import { Pagination } from '../../../components/common/pagination';
+import { useEffect } from "react";
+import Pagination from '../../../components/common/pagination';
 
 export const ClientListPage = () => {
-
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   const {
     clients,
@@ -26,6 +22,11 @@ export const ClientListPage = () => {
     inlineFilters,
     setInlineFilter,
     clearInlineFilters,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
     selectedClient,
     isDrawerOpen,
     isModalOpen,
@@ -50,20 +51,9 @@ export const ClientListPage = () => {
     }
   }, [location, clients]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, inlineFilters]);
-
   const handleNavigateToDetail = (clientId) => {
     navigate(`/pages/mainModule/clients/${clientId}`);
   };
-
-  const totalItems = clients.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-
-  // Slice clients for current page
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClients = clients.slice(startIndex, startIndex + itemsPerPage);
 
   const hasAnyFilter = Boolean(
     searchQuery ||
@@ -77,6 +67,7 @@ export const ClientListPage = () => {
   const handleClearAllFilters = () => {
     setSearchQuery('');
     clearInlineFilters();
+    setPage(1);
   };
 
   return (
@@ -95,7 +86,7 @@ export const ClientListPage = () => {
         </button>
       </div>
 
-      {/* Global Filter Bar: Company Name only with Clear All option */}
+      {/* Global Filter Bar */}
       <ClientFilters
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -103,11 +94,11 @@ export const ClientListPage = () => {
         onClearAll={handleClearAllFilters}
       />
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm h-[650px] flex flex-col overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
         {/* Main Table with Inline Header Filters */}
-        <div className="flex-1 min-h-0 ">
+        <div className="flex-1 min-h-0">
           <ClientTable
-            clients={paginatedClients}
+            clients={clients}
             inlineFilters={inlineFilters}
             setInlineFilter={setInlineFilter}
             clearInlineFilters={clearInlineFilters}
@@ -115,11 +106,15 @@ export const ClientListPage = () => {
             onEditClick={handleOpenEditModal}
           >
             <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={(newPage) => setCurrentPage(newPage)}
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setLimit(newSize);
+                setPage(1);
+              }}
             />
           </ClientTable>
         </div>

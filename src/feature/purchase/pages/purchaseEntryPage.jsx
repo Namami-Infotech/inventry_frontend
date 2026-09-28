@@ -111,22 +111,19 @@ export const PurchaseEntryPage = ({ onCancel, onSaveSuccess }) => {
         `Discount (₹${Number(invalidDiscount.discount)}) cannot exceed Rate (₹${Number(invalidDiscount.rate || 0)}) for item "${invalidDiscount.itemName || 'Item'}".`;
     }
 
-    // Duplicate Item + Brand Validation
-    const seenCombos = new Set();
+    // Duplicate Item Validation
+    const seenItems = new Set();
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       if (!it.itemName?.trim()) continue;
       const itemIdKey = String(it.item_id || it.itemId || it.itemName).trim().toLowerCase();
-      const brandKey = String(it.brand || '').trim().toLowerCase();
-      const comboKey = `${itemIdKey}__${brandKey}`;
 
-      if (seenCombos.has(comboKey)) {
+      if (seenItems.has(itemIdKey)) {
         const itemDisplayName = it.itemName || `Item #${it.item_id}`;
-        const brandDisplayName = it.brand?.trim() ? ` with brand "${it.brand.trim()}"` : '';
-        newErrors.items = `Duplicate item detected: "${itemDisplayName}"${brandDisplayName} cannot be added multiple times. Please combine their quantity into a single row.`;
+        newErrors.items = `Duplicate item detected: "${itemDisplayName}" cannot be added multiple times. Please combine their quantity into a single row.`;
         break;
       }
-      seenCombos.add(comboKey);
+      seenItems.add(itemIdKey);
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -173,7 +170,9 @@ export const PurchaseEntryPage = ({ onCancel, onSaveSuccess }) => {
       vendor_phone: headerData.vendor_phone || '',
       vendor_email: headerData.vendor_email || '',
       invoice_no: headerData.invoice_no,
+      invoice_number: headerData.invoice_no,
       invoice_date: headerData.invoice_date,
+      purchase_date: headerData.invoice_date,
       invoice_copy: invoiceCopyUrl,
 
 
@@ -202,7 +201,7 @@ export const PurchaseEntryPage = ({ onCancel, onSaveSuccess }) => {
       // -----------------------------
       // Other Details
       // -----------------------------
-      remarks: '',
+      remarks: headerData.remarks || '',
 
       created_by: 1,
 
@@ -211,6 +210,9 @@ export const PurchaseEntryPage = ({ onCancel, onSaveSuccess }) => {
       // -----------------------------
       items: items.map((item) => ({
         item_id: item.item_id || item.itemId || null,
+        raw_material_id: item.item_id || item.itemId || null,
+        itemName: item.itemName || item.name || '',
+        raw_material_name: item.itemName || item.name || '',
         brand: item.brand || '',
         quantity: Number(item.quantity || 0),
         qty: Number(item.quantity || 0),
@@ -219,6 +221,7 @@ export const PurchaseEntryPage = ({ onCancel, onSaveSuccess }) => {
         discount: Number(item.discount || 0),
         discount_amount: Number(item.discount || 0),
         line_total: Number(item.lineTotal || 0),
+        unit: item.unit || 'KG',
       })),
 
     };

@@ -1,52 +1,68 @@
-import axios from 'axios';
+import axios from "axios";
+import { API_BASE_URL } from "../../../services/apiConfig.js";
 
-// const BASE_URL = 'http://localhost:5001/api/delivery';
+const BASE_URL = `${API_BASE_URL}/api/delivery`;
 
-const BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:5001/api/delivery'
-  : 'https://www.namami-infotech.com/inventory/api/delivery';
-
-
-export const createDeliveryChallan = async (payload) => {
-  const response = await axios.post(`${BASE_URL}/add`, payload, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getDeliveries = async (params = {}) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(BASE_URL, {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-export const getAllDeliveryChallans = async () => {
-  const response = await axios.get(`${BASE_URL}/all`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getDeliveryById = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-export const getDeliveryChallanById = async (id) => {
-  const response = await axios.get(`${BASE_URL}/${id}`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getEligibleProjectsForDelivery = async () => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/eligible-projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-export const fetchOrderDispatchSummary = async (orderId, params = {}) => {
-  const response = await axios.get(`${BASE_URL}/order-summary/${orderId}`, {
-    params,
-    withCredentials: true,
-  });
-  return response.data;
+export const getProjectForDelivery = async (projectId) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/project-prefill/${projectId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-export const getMaterialReceipts = async () => {
-  const response = await axios.get(`${BASE_URL}/receipts`, {
-    withCredentials: true,
-  });
-  return response.data;
+export const getNextDeliveryNumber = async () => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.get(`${BASE_URL}/next-number`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
-export const acceptDeliveryReceipt = async (challanId, payload) => {
-  const response = await axios.post(`${BASE_URL}/${challanId}/accept`, payload, {
-    withCredentials: true,
-  });
-  return response.data;
+export const createDelivery = async (data) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.post(`${BASE_URL}/add`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
 };
 
+export const cancelDelivery = async (id) => {
+    const token = localStorage.getItem("authToken");
+    const response = await axios.put(`${BASE_URL}/${id}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+    });
+    return response.data;
+};

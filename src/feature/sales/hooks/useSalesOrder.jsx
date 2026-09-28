@@ -4,8 +4,16 @@ import { fetchSalesOrders, updateSalesOrder } from '../../client/services/salesO
 export const useSalesOrder = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
-  // Global Search state (Client Name only)
+  // Global Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   // Inline Column Header Filters state
@@ -18,21 +26,41 @@ export const useSalesOrder = () => {
     status: '',
   });
 
-  useEffect(() => {
-    const loadOrders = async () => {
-      setLoading(true);
-      try {
-        const res = await fetchSalesOrders();
-        const data = res?.data ?? res;
-        setOrders(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error fetching sales orders:', err);
-      } finally {
-        setLoading(false);
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchSalesOrders({
+        page,
+        limit,
+        search: searchQuery || undefined
+      });
+      const data = res?.data ?? res;
+      setOrders(Array.isArray(data) ? data : []);
+      if (res?.pagination) {
+        setPagination(res.pagination);
+      } else {
+        setPagination({
+          currentPage: page,
+          pageSize: limit,
+          totalItems: Array.isArray(data) ? data.length : 0,
+          totalPages: Math.ceil((Array.isArray(data) ? data.length : 0) / limit) || 1
+        });
       }
-    };
+    } catch (err) {
+      console.error('Error fetching sales orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadOrders();
-  }, []);
+  }, [page, limit, searchQuery]);
+
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+    setPage(1);
+  };
 
   const setInlineFilter = (field, value) => {
     setInlineFilters((prev) => ({
@@ -176,6 +204,7 @@ export const useSalesOrder = () => {
   const resetFilters = () => {
     setSearchQuery('');
     clearInlineFilters();
+    setPage(1);
   };
 
   return {
@@ -183,12 +212,18 @@ export const useSalesOrder = () => {
     rawOrders: orders,
     loading,
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: handleSearchChange,
     inlineFilters,
     setInlineFilter,
     clearInlineFilters,
     resetFilters,
     addOrder,
     updateOrderStatus,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
+    loadOrders,
   };
 };

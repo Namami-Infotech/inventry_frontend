@@ -86,7 +86,9 @@ function App() {
                     "sales manager",
                     "store manager",
                     "branch admin",
-                    "employee"
+                    "employee",
+                    "shift incharge",
+                    "operator"
                 ]}>
                     <MainModule />
                 </ProtectedRoute>

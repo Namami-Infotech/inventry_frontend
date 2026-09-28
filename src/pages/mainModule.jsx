@@ -2,53 +2,62 @@ import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
-  ShoppingBag,
   ShoppingCart,
+  ShoppingBag,
   Package,
   Truck,
   UserCheck,
   ClipboardList,
-  ClipboardCheck,
-  Tag,
   Cpu,
   Boxes,
-  User,
   FileText,
   X,
   ChevronDown,
   ChevronRight,
   Store,
   Box,
-  ScrollText
+  ScrollText,
+  RotateCcw,
+  BarChart3,
+  Layers,
+  Building2,
+  CalendarCheck
 } from "lucide-react";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 
+// Core Modules
 import { DashboardPage } from "../feature/dashboard/pages/DashboardPage";
-import { ClientListPage } from "../feature/client/pages/clientPage";
-import { ClientDetailPage } from "../feature/client/pages/clientDetailsPage";
-import { SalesOrderPage } from "../feature/sales/pages/salesOrderPage";
-import { PurchaseListPage } from "../feature/purchase/pages/PurchaseListPage";
-import { StorePage } from "../feature/storeItems/pages/storePage";
+import { ReportsPage } from "../feature/dashboard/pages/ReportsPage";
+import { ProjectListPage } from "../feature/project/pages/ProjectListPage";
+import { ProjectDetailPage } from "../feature/project/pages/ProjectDetailPage";
+import { MachineListPage } from "../feature/machine/pages/MachineListPage";
+import { PlanningListPage } from "../feature/planning/pages/PlanningListPage";
+import { MaterialRequestListPage } from "../feature/materialRequest/pages/MaterialRequestListPage";
+import { MaterialDispatchListPage } from "../feature/materialDispatch/pages/MaterialDispatchListPage";
+import { ProductionListPage } from "../feature/production/pages/ProductionListPage";
 import { DeliveryList } from "../feature/delivery/pages/DeliveryList";
 import { CreateDeliveryPage } from "../feature/delivery/pages/CreateDeliveryPage";
-import { MaterialReceiptPage } from "../feature/delivery/pages/MaterialReceiptPage";
+import { PurchaseListPage } from "../feature/purchase/pages/PurchaseListPage";
+import { PurchaseEntryPage } from "../feature/purchase/pages/purchaseEntryPage";
+import { StorePage } from "../feature/storeItems/pages/storePage";
+import { ClientListPage } from "../feature/client/pages/clientPage";
+import { ClientDetailPage } from "../feature/client/pages/clientDetailsPage";
+import { EmployeeListPage } from "../feature/employee/pages/EmployeeListPage";
+import { UserProfilePage } from "../feature/employee/pages/UserProfilePage";
+
+// Auxiliary / Backward Compatibility
+import { QuotationListPage } from "../feature/quotation/pages/QuotationListPage";
+import { SalesOrderPage } from "../feature/sales/pages/salesOrderPage";
 import { ChallanListPage } from "../feature/challan/pages/ChallanListPage";
 import { CreateChallanPage } from "../feature/challan/pages/CreateChallanPage";
-import { PurchaseEntryPage } from "@/feature/purchase/pages/purchaseEntryPage";
-import { EmployeeListPage } from "../feature/employee/pages/EmployeeListPage";
 import { BrandListPage } from "../feature/brand/pages/BrandListPage";
-import { UserProfilePage } from "../feature/employee/pages/UserProfilePage";
-import { ProductionListPage } from "../feature/production/pages/ProductionListPage";
-import { QuotationListPage } from "../feature/quotation/pages/QuotationListPage";
-import BOMMainPage from "../feature/bom/pages/BOMMainPage";
-import ProductTab from "../feature/product/Product";
 
 const MainModule = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState({ Stores: true });
+  const [expandedMenus, setExpandedMenus] = useState({ Store: true });
 
   const getStoredUser = () => {
     try {
@@ -61,19 +70,17 @@ const MainModule = () => {
   const currentUser = getStoredUser();
   const rawRole = (currentUser?.role || currentUser?.Role || "").trim();
   const rawLower = rawRole.toLowerCase();
-  const isSalesRole = rawLower === "sales" || rawLower === "sales manager";
-  const isStoreRole = rawLower === "warehouse manager" || rawLower === "store manager";
 
-  let userRole = rawLower;
-  let displayRole = currentUser?.role || "User";
+  // Normalize role
+  let normalizedRole = "operator";
+  if (rawLower.includes("admin")) normalizedRole = "admin";
+  else if (rawLower === "manager") normalizedRole = "manager";
+  else if (rawLower.includes("sales") || rawLower.includes("order")) normalizedRole = "sales manager";
+  else if (rawLower.includes("store") || rawLower.includes("warehouse")) normalizedRole = "store manager";
+  else if (rawLower.includes("shift") || rawLower.includes("incharge") || rawLower.includes("engineer")) normalizedRole = "shift incharge";
+  else if (rawLower.includes("operator")) normalizedRole = "operator";
 
-  if (isSalesRole) {
-    userRole = "order manager";
-    displayRole = "Order Manager";
-  } else if (isStoreRole) {
-    userRole = "store manager";
-    displayRole = "Store Manager";
-  }
+  const displayRole = currentUser?.role || "User";
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -89,147 +96,114 @@ const MainModule = () => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  // Complete Menu definition matching 6 Roles
   const menuItems = [
     {
       name: "Dashboard",
       path: "dashboard",
       icon: LayoutDashboard,
-      allowedRoles: ["Order Manager", "order manager", "sales", "sales manager", "store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "site engineer", "project incharge", "manager"],
+      allowedRoles: ["admin", "manager", "sales manager", "store manager", "shift incharge", "operator"]
     },
     {
-      name: "Store",
-      path: "store",
-      icon: Store,
-      allowedRoles: ["store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
-      subItems: [
-        {
-          name: "Store Master",
-          path: "store",
-          icon: Package,
-        },
-        {
-          name: "Material Requests",
-          path: "store/material-requests",
-          icon: ClipboardList,
-        },
-        {
-          name: "Dispatch Logs",
-          path: "store/dispatch-history",
-          icon: Truck,
-        },
-        {
-          name: "Finished Goods",
-          path: "store/finished-goods",
-          icon: Box,
-        },
-        {
-          name: "Damage & Returns",
-          path: "store/damage-returns",
-          icon: FileText,
-        },
-      ],
-    },
-    {
-      name: "Product Master",
-      path: "products",
+      name: "Products",
+      path: "projects",
       icon: Boxes,
-      allowedRoles: ["Admin", "Super Admin", "manager"],
+      allowedRoles: ["admin", "manager", "sales manager", "shift incharge"]
     },
     {
-      name: "BOM / BOQ",
-      path: "bom",
-      icon: ClipboardList,
-      allowedRoles: ["store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "project incharge", "manager"],
+      name: "Planning",
+      path: "planning",
+      icon: CalendarCheck,
+      allowedRoles: ["admin", "manager", "shift incharge"]
     },
+    {
+      name: "Material Requests",
+      path: "material-requests",
+      icon: ClipboardList,
+      allowedRoles: ["admin", "manager", "store manager", "shift incharge"]
+    },
+    // {
+    //   name: "Material Dispatch",
+    //   path: "material-dispatches",
+    //   icon: Truck,
+    //   allowedRoles: ["admin", "manager", "store manager", "shift incharge"]
+    // },
     {
       name: "Production",
       path: "production",
       icon: Cpu,
-      allowedRoles: ["store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
-    },
-    {
-      name: "Client / Vendor",
-      path: "clients",
-      icon: Users,
-      allowedRoles: ["Order Manager", "order manager", "sales", "sales manager", "store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
-    },
-    {
-      name: "Quotations",
-      path: "quotations",
-      icon: FileText,
-      allowedRoles: ["Order Manager", "order manager", "sales", "sales manager", "store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
-    },
-    {
-      name: "Sales Orders",
-      path: "sales-orders",
-      icon: ShoppingBag,
-      allowedRoles: ["Order Manager", "order manager", "sales", "sales manager", "store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "project incharge", "manager"],
-    },
-    {
-      name: "Purchase",
-      path: "purchase",
-      icon: ShoppingCart,
-      allowedRoles: ["store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
+      allowedRoles: ["admin", "manager", "shift incharge", "operator"]
     },
     {
       name: "Delivery",
       path: "delivery",
       icon: Truck,
-      allowedRoles: ["store manager", "Warehouse Manager", "warehouse manager", "Admin", "Super Admin", "manager"],
+      allowedRoles: ["admin", "manager", "sales manager", "store manager"]
     },
     {
-      name: "Challan",
-      path: "challan",
-      icon: ScrollText,
-      allowedRoles: ["Admin", "Super Admin", "manager"],
+      name: "Machines",
+      path: "machines",
+      icon: Cpu,
+      allowedRoles: ["admin", "manager", "shift incharge", "operator"]
     },
     {
-      name: "Material Receipt",
-      path: "material-receipt",
-      icon: ClipboardCheck,
-      allowedRoles: ["site engineer", "Admin", "Super Admin", "manager"],
+      name: "Purchase",
+      path: "purchase",
+      icon: ShoppingCart,
+      allowedRoles: ["admin", "manager", "store manager"]
     },
     {
-      name: "Brand & Category",
-      path: "brands",
-      icon: Tag,
-      allowedRoles: ["Super Admin", "Admin", "manager"],
+      name: "Store & Inventory",
+      path: "store",
+      icon: Store,
+      allowedRoles: ["admin", "manager", "store manager"]
+    },
+    {
+      name: "Clients & Vendors",
+      path: "clients",
+      icon: Users,
+      allowedRoles: ["admin", "manager", "sales manager", "store manager"]
+    },
+    {
+      name: "Sales Orders",
+      path: "sales-orders",
+      icon: ShoppingBag,
+      allowedRoles: ["admin", "manager", "sales manager", "store manager"]
+    },
+    // {
+    //   name: "Challans",
+    //   path: "challan",
+    //   icon: ScrollText,
+    //   allowedRoles: ["admin", "manager", "sales manager", "store manager"]
+    // },
+    {
+      name: "Reports",
+      path: "reports",
+      icon: BarChart3,
+      allowedRoles: ["admin", "manager", "sales manager"]
     },
     {
       name: "Employees",
       path: "employees",
       icon: UserCheck,
-      allowedRoles: ["Super Admin", "Admin"],
-    },
+      allowedRoles: ["admin"]
+    }
   ];
 
-  // Filter menu items by role with sales/sales manager normalized to order manager, and warehouse manager normalized to store manager
+  // Filter menu items by user role (admin sees all, case-insensitive check)
   const visibleMenuItems = menuItems.filter((item) => {
+    if (normalizedRole === "admin") return true;
     if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
-    if (!userRole) return true;
-    const normalizedAllowed = item.allowedRoles.map((r) => {
-      const rLower = String(r).trim().toLowerCase();
-      if (rLower === "sales" || rLower === "sales manager") return "order manager";
-      if (rLower === "warehouse manager" || rLower === "store manager") return "store manager";
-      return rLower;
-    });
-    return normalizedAllowed.includes(userRole) || normalizedAllowed.includes(rawLower);
+    return item.allowedRoles.some(r => (r || "").toLowerCase().trim() === normalizedRole.toLowerCase().trim());
   });
 
   const currentSubPath = location.pathname.replace(/^\/pages\/mainModule\/?/, "");
   const isProfileActive = currentSubPath === "profile" || location.pathname.endsWith("/profile");
 
-  // Keep Store expanded if current path is under store
-  useEffect(() => {
-    if (currentSubPath.startsWith("store")) {
-      setExpandedMenus((prev) => ({ ...prev, Store: true, Stores: true }));
-    }
-  }, [currentSubPath]);
-
   const toggleSubMenu = (menuName) => {
     setExpandedMenus((prev) => ({
       ...prev,
-      [menuName]: !prev[menuName],
+      [menuName]: !prev[menuName]
     }));
   };
 
@@ -242,22 +216,7 @@ const MainModule = () => {
     }
     if (isProfileActive) return "User Profile";
 
-    if (currentSubPath.startsWith("store")) {
-      return "Store";
-    }
-
     for (const item of menuItems) {
-      if (item.subItems) {
-        const foundSub = item.subItems.find(
-          (sub) =>
-            currentSubPath === sub.path ||
-            (sub.path !== "store" && currentSubPath.startsWith(`${sub.path}`)) ||
-            (sub.path === "store" && (currentSubPath === "store" || currentSubPath === "store/store-master"))
-        );
-        if (foundSub) {
-          return item.name;
-        }
-      }
       if (
         item.path &&
         (currentSubPath === item.path || currentSubPath.startsWith(`${item.path}/`))
@@ -290,10 +249,10 @@ const MainModule = () => {
         <div className="px-2.5 py-3 mb-2 shrink-0 flex items-center justify-between border-b border-slate-800/80">
           <div>
             <h2 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              Inventory ERP
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+              Manufacturing ERP
             </h2>
-            <p className="text-[10px] text-slate-400 font-medium">Operations & Sales</p>
+            <p className="text-[10px] text-slate-400 font-medium">Production & Operations</p>
           </div>
 
           {/* Close button on mobile */}
@@ -311,66 +270,9 @@ const MainModule = () => {
         <div className="flex-1 overflow-y-auto pr-1 space-y-1 min-h-0 custom-scrollbar">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
-            const hasSub = Array.isArray(item.subItems) && item.subItems.length > 0;
             const isParentActive =
               currentSubPath === item.path ||
-              currentSubPath.startsWith(`${item.path}/`) ||
-              (hasSub && item.subItems.some((sub) => currentSubPath === sub.path || currentSubPath.startsWith(`${sub.path}`)));
-            const isExpanded = !!expandedMenus[item.name];
-
-            if (hasSub) {
-              return (
-                <div key={item.name} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleSubMenu(item.name)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-semibold ${isParentActive
-                      ? "bg-slate-800 text-white border-l-2 border-blue-500"
-                      : "hover:bg-slate-800 text-slate-300 hover:text-white"
-                      }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon size={16} className={isParentActive ? "text-blue-400" : "text-slate-400"} />
-                      <span className="truncate">{item.name}</span>
-                    </div>
-                    <span className="text-slate-400 p-0.5">
-                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </span>
-                  </button>
-
-                  {/* Submenu Items */}
-                  {isExpanded && (
-                    <div className="ml-3 pl-2.5 border-l border-slate-800 space-y-0.5 animate-in fade-in duration-200">
-                      {item.subItems.map((sub) => {
-                        const SubIcon = sub.icon || Package;
-                        const isSubActive =
-                          sub.path === "store"
-                            ? currentSubPath === "store" || currentSubPath === "store/store-master"
-                            : currentSubPath === sub.path || currentSubPath.startsWith(`${sub.path}`);
-
-                        return (
-                          <button
-                            key={sub.name}
-                            type="button"
-                            onClick={() => {
-                              navigate(`/pages/mainModule/${sub.path}`);
-                              setIsSidebarOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer text-[11px] text-left font-medium ${isSubActive
-                              ? "bg-blue-600 text-white font-semibold shadow-xs"
-                              : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
-                              }`}
-                          >
-                            <SubIcon size={13} className={isSubActive ? "text-white" : "text-slate-500"} />
-                            <span className="truncate">{sub.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+              currentSubPath.startsWith(`${item.path}/`);
 
             return (
               <button
@@ -380,8 +282,8 @@ const MainModule = () => {
                   navigate(`/pages/mainModule/${item.path}`);
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all cursor-pointer text-xs font-semibold ${isParentActive
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold ${isParentActive
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
                   : "hover:bg-slate-800 text-slate-300 hover:text-white"
                   }`}
               >
@@ -441,41 +343,26 @@ const MainModule = () => {
           <Routes>
             <Route index element={<Navigate to="dashboard" replace />} />
 
+            {/* Core Manufacturing Workflow Routes */}
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="store" element={<StorePage />} />
-            <Route path="store/store-master" element={<StorePage />} />
-            <Route path="store/material-requests" element={<StorePage />} />
-            <Route path="store/dispatch-history" element={<StorePage />} />
-            <Route path="store/finished-goods" element={<StorePage />} />
-            <Route path="store/damage-returns" element={<StorePage />} />
-            <Route path="store/damage-reports" element={<StorePage />} />
-            <Route path="products" element={<ProductTab />} />
 
-            <Route path="clients/:clientId" element={<ClientDetailPage />} />
-            <Route path="clients" element={<ClientListPage />} />
-            <Route path="quotations" element={<QuotationListPage />} />
-            <Route path="sales-orders" element={<SalesOrderPage />} />
+            {/* Product Management */}
+            <Route path="projects" element={<ProjectListPage />} />
+            <Route path="projects/:id" element={<ProjectDetailPage />} />
+            <Route path="products" element={<ProjectListPage />} />
+            <Route path="products/:id" element={<ProjectDetailPage />} />
 
-            <Route path="bom" element={<BOMMainPage />} />
+            {/* Production Planning */}
+            <Route path="planning" element={<PlanningListPage />} />
 
-            <Route
-              path="purchase"
-              element={
-                <PurchaseListPage
-                  onOpenCreate={() => navigate("/pages/mainModule/purchase/new")}
-                />
-              }
-            />
-            <Route
-              path="purchase/new"
-              element={
-                <PurchaseEntryPage
-                  onCancel={() => navigate("/pages/mainModule/purchase")}
-                  onSaveSuccess={() => navigate("/pages/mainModule/purchase")}
-                />
-              }
-            />
+            {/* Material Requisition & Dispatch */}
+            <Route path="material-requests" element={<MaterialRequestListPage />} />
+            <Route path="material-dispatches" element={<MaterialDispatchListPage />} />
 
+            {/* Production Floor */}
+            <Route path="production" element={<ProductionListPage />} />
+
+            {/* Delivery Management */}
             <Route
               path="delivery"
               element={
@@ -494,6 +381,46 @@ const MainModule = () => {
               }
             />
 
+            {/* Machines Management */}
+            <Route path="machines" element={<MachineListPage />} />
+
+            {/* Purchase Management */}
+            <Route
+              path="purchase"
+              element={
+                <PurchaseListPage
+                  onOpenCreate={() => navigate("/pages/mainModule/purchase/new")}
+                />
+              }
+            />
+            <Route
+              path="purchase/new"
+              element={
+                <PurchaseEntryPage
+                  onCancel={() => navigate("/pages/mainModule/purchase")}
+                  onSaveSuccess={() => navigate("/pages/mainModule/purchase")}
+                />
+              }
+            />
+
+            {/* Store & Inventory */}
+            <Route path="store" element={<StorePage />} />
+            <Route path="store/store-master" element={<StorePage />} />
+            <Route path="store/finished-goods" element={<StorePage />} />
+
+            {/* Clients & Vendors */}
+            <Route path="clients" element={<ClientListPage />} />
+            <Route path="clients/:clientId" element={<ClientDetailPage />} />
+
+            {/* Reports */}
+            <Route path="reports" element={<ReportsPage />} />
+
+            {/* Employees */}
+            <Route path="employees" element={<EmployeeListPage />} />
+
+            {/* Quotations & Sales Orders (Auxiliary / Backward Compatibility) */}
+            <Route path="quotations" element={<QuotationListPage />} />
+            <Route path="sales-orders" element={<SalesOrderPage />} />
             <Route
               path="challan"
               element={
@@ -511,15 +438,9 @@ const MainModule = () => {
                 />
               }
             />
-
-            <Route path="material-receipt" element={<MaterialReceiptPage />} />
-
-            <Route path="production" element={<ProductionListPage />} />
-
             <Route path="brands" element={<BrandListPage />} />
-            <Route path="employees" element={<EmployeeListPage />} />
 
-            {/* User Profile Page */}
+            {/* User Profile */}
             <Route path="profile" element={<UserProfilePage />} />
           </Routes>
         </div>

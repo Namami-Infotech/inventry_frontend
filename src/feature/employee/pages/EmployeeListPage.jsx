@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useEmployee } from '../hooks/useEmployee';
 import { EmployeeHeader } from '../components/employeeHeader.jsx';
 import { EmployeeFilter } from '../components/employeeFilter.jsx';
 import { EmployeeTable } from '../components/employeeTable.jsx';
 import { EmployeeModal } from '../components/EmployeeModal';
 import { EmployeeViewModal } from '../components/employeeViewModal';
-import { Pagination } from '../../../components/common/pagination';
+import Pagination from '../../../components/common/pagination';
+import DeleteConfirmation from '../../../components/common/DeleteConfirmation.jsx';
 
 export const EmployeeListPage = () => {
   const {
@@ -20,6 +21,11 @@ export const EmployeeListPage = () => {
     statusFilter,
     setStatusFilter,
     handleClearFilters,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    pagination,
     isModalOpen,
     editingId,
     formData,
@@ -38,18 +44,28 @@ export const EmployeeListPage = () => {
     handleCloseViewModal,
   } = useEmployee();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Reset to first page when search query, filters, or list size change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, roleFilter, statusFilter, employees.length]);
+  const handleDeleteClick = (emp) => {
+    setSelectedEmployee(emp);
+    setDeleteModalOpen(true);
+  };
 
-  const totalItems = employees.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEmployees = employees.slice(startIndex, startIndex + itemsPerPage);
+  const handleConfirmDelete = async () => {
+    if (!selectedEmployee) return;
+    setDeleteLoading(true);
+    try {
+      await handleDelete(selectedEmployee.id);
+      setDeleteModalOpen(false);
+      setSelectedEmployee(null);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error deleting employee');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
@@ -67,19 +83,24 @@ export const EmployeeListPage = () => {
       />
 
       <EmployeeTable
-        employees={paginatedEmployees}
+        employees={employees}
         loading={loading}
         onEdit={handleOpenModal}
         onView={handleOpenViewModal}
+        onDelete={handleDeleteClick}
         onToggleStatus={handleToggleStatus}
         statusUpdatingId={statusUpdatingId}
       >
         <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={(page) => setCurrentPage(Math.max(1, Math.min(totalPages, page)))}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pagination.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setLimit(newSize);
+            setPage(1);
+          }}
         />
       </EmployeeTable>
 
@@ -101,6 +122,18 @@ export const EmployeeListPage = () => {
         employee={viewingEmployee}
       />
 
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Employee"
+        itemName={selectedEmployee?.employee_name}
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+        loading={deleteLoading}
+      />
     </div>
   );
 };

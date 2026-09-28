@@ -67,9 +67,12 @@ export const getProjectIncharges = async () => {
 };
 
 export const getProducts = async () => {
+    const token = localStorage.getItem("authToken");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await axios.get(
         `${PRODUCT_BASE_URL}`,
         {
+            headers,
             withCredentials: true,
         }
     );

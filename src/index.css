@@ -170,3 +170,44 @@ body {
   color: hsl(210 40% 98%);
   font-family: sans-serif;
 }
+
+/* ===================================================
+   TABLE NO-WRAP & SMOOTH HORIZONTAL SCROLL
+   Prevents table content from wrapping so columns stay aligned,
+   with smooth horizontal scrolling when columns overflow.
+   =================================================== */
+table th,
+table td {
+  white-space: nowrap;
+}
+
+/* Allow empty state or full-width notification rows to wrap normally */
+table td[colspan] {
+  white-space: normal;
+}
+
+/* Ensure all table overflow wrappers scroll smoothly */
+.overflow-x-auto {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modern subtle scrollbar for tables */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

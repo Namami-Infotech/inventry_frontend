@@ -1,516 +1,388 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Eye, Truck, Search, Filter, Calendar, X, MessageSquare, AlertTriangle, CheckCircle2, Package, Factory } from 'lucide-react';
-import { getAllDeliveryChallans, getDeliveryChallanById } from '../services/deliveryService';
-import { ViewDeliveryChallanModal } from '../components/ViewDeliveryChallanModal';
-import { Pagination } from '../../../components/common/pagination';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Truck,
+  Plus,
+  Search,
+  Eye,
+  CheckCircle2,
+  Calendar,
+  Building2,
+  Package,
+  RefreshCw,
+  XCircle,
+  Filter,
+  Loader2,
+  Clock
+} from "lucide-react";
+import { getDeliveries, getDeliveryById, cancelDelivery } from "../services/deliveryService";
+import { ViewDeliveryChallanModal } from "../components/ViewDeliveryChallanModal";
+import Pagination from "../../../components/common/pagination";
+import TableSearch from "../../../components/common/TableSearch";
+import DeleteConfirmation from "../../../components/common/DeleteConfirmation";
 
 export const DeliveryList = ({ onAddNew }) => {
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedChallan, setSelectedChallan] = useState(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewLoading, setViewLoading] = useState(false);
-
-  // Tabs: 'site_material' (Site Assembly / BOM Delivery) vs 'in_house' (In-House / Direct Product Delivery)
-  const [activeTab, setActiveTab] = useState('site_material');
-
-  // Filters state
-  const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    receiptStatus: '',
-    dispatchDate: '',
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1
+  });
 
-  useEffect(() => {
-    fetchDeliveries();
-  }, []);
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  const fetchDeliveries = async () => {
+  // Cancel Confirmation state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [deliveryToCancel, setDeliveryToCancel] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const rawRole = (currentUser?.role || currentUser?.Role || "").trim().toLowerCase();
+  const canDispatch =
+    rawRole === "admin" ||
+    rawRole === "super admin" ||
+    rawRole === "store manager" ||
+    rawRole === "warehouse manager" ||
+    rawRole === "manager";
+
+  const fetchDeliveriesList = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getAllDeliveryChallans();
-      if (res?.data) {
-        setDeliveries(res.data);
-      } else if (Array.isArray(res)) {
-        setDeliveries(res);
+      const res = await getDeliveries({
+        page,
+        limit,
+        search: searchTerm ? searchTerm.trim() : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined
+      });
+      const list = Array.isArray(res) ? res : res?.data || [];
+      setDeliveries(list);
+
+      if (res?.pagination) {
+        setPagination(res.pagination);
+      } else {
+        setPagination({
+          currentPage: page,
+          pageSize: limit,
+          totalItems: list.length,
+          totalPages: Math.ceil(list.length / limit) || 1
+        });
       }
     } catch (err) {
-      console.error('Failed to fetch delivery challans:', err);
+      console.error("Failed to load deliveries:", err);
     } finally {
       setLoading(false);
     }
+  }, [page, limit, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchDeliveriesList();
+  }, [fetchDeliveriesList]);
+
+  const handleSearchChange = (val) => {
+    setSearchTerm(val);
+    setPage(1);
   };
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setCurrentPage(1);
+  const handleStatusChange = (val) => {
+    setStatusFilter(val);
+    setPage(1);
   };
 
-  const handleClearFilters = () => {
-    setFilters({
-      search: '',
-      status: '',
-      receiptStatus: '',
-      dispatchDate: '',
-    });
-    setCurrentPage(1);
+  const handlePageSizeChange = (newLimit) => {
+    setLimit(newLimit);
+    setPage(1);
   };
 
-  const hasActiveFilters = Boolean(
-    filters.search || filters.status || filters.receiptStatus || filters.dispatchDate
-  );
-
-  const getLocalDateString = (dateInput) => {
-    if (!dateInput) return '';
-    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
-      return dateInput.substring(0, 10);
-    }
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-      const parts = dateStr.substring(0, 10).split('-');
-      return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}/${parts[0]}`;
-    }
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '-';
-    return d.toLocaleDateString('en-IN');
-  };
-
-  // Tab count metrics
-  const siteMaterialCount = useMemo(() => {
-    return deliveries.filter(
-      (d) => d.delivery_type !== 'in_house' && d.receipt_status !== 'Direct Delivery'
-    ).length;
-  }, [deliveries]);
-
-  const inHouseCount = useMemo(() => {
-    return deliveries.filter(
-      (d) => d.delivery_type === 'in_house' || d.receipt_status === 'Direct Delivery'
-    ).length;
-  }, [deliveries]);
-
-  // Filtered deliveries list according to active tab and search filters
-  const filteredDeliveries = useMemo(() => {
-    return deliveries.filter((item) => {
-      const isInHouse = item.delivery_type === 'in_house' || item.receipt_status === 'Direct Delivery';
-      if (activeTab === 'site_material' && isInHouse) return false;
-      if (activeTab === 'in_house' && !isInHouse) return false;
-
-      const q = filters.search.trim().toLowerCase();
-      const matchesSearch =
-        !q ||
-        (item.challan_no && item.challan_no.toLowerCase().includes(q)) ||
-        (item.customer_name && item.customer_name.toLowerCase().includes(q)) ||
-        (item.site_engineer_name && item.site_engineer_name.toLowerCase().includes(q)) ||
-        (item.customer_phone && String(item.customer_phone).includes(q));
-
-      const matchesStatus =
-        !filters.status || item.status === filters.status;
-
-      const matchesReceiptStatus =
-        !filters.receiptStatus || item.receipt_status === filters.receiptStatus;
-
-      let matchesDate = true;
-      if (filters.dispatchDate) {
-        const itemDateStr = getLocalDateString(item.dispatch_date);
-        matchesDate = itemDateStr === filters.dispatchDate;
-      }
-
-      return matchesSearch && matchesStatus && matchesReceiptStatus && matchesDate;
-    });
-  }, [deliveries, filters, activeTab]);
-
-  const handleViewChallan = async (challan) => {
+  const handleView = async (delivery) => {
     try {
-      setViewLoading(true);
-      const res = await getDeliveryChallanById(challan.id);
-      if (res?.data) {
-        setSelectedChallan(res.data);
+      const res = await getDeliveryById(delivery.id);
+      if (res?.success && res.data) {
+        setSelectedDelivery(res.data);
       } else {
-        setSelectedChallan(challan);
+        setSelectedDelivery(delivery);
       }
       setIsViewModalOpen(true);
     } catch (err) {
-      console.warn('Could not fetch full challan details, using table record:', err);
-      setSelectedChallan(challan);
+      console.error("Error loading delivery details:", err);
+      setSelectedDelivery(delivery);
       setIsViewModalOpen(true);
+    }
+  };
+
+  const handleOpenCancel = (del) => {
+    setDeliveryToCancel(del);
+    setCancelModalOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!deliveryToCancel) return;
+    try {
+      setCancelLoading(true);
+      await cancelDelivery(deliveryToCancel.id);
+      setCancelModalOpen(false);
+      setDeliveryToCancel(null);
+
+      // Edge case: if last record on page > 1, shift back
+      if (page > 1 && deliveries.length <= 1) {
+        setPage((prev) => Math.max(1, prev - 1));
+      } else {
+        fetchDeliveriesList();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to cancel delivery challan");
     } finally {
-      setViewLoading(false);
+      setCancelLoading(false);
     }
   };
 
-  // Pagination calculations
-  const totalItems = filteredDeliveries.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const paginatedDeliveries = filteredDeliveries.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  // KPI Calculations
+  const totalDeliveriesCount = deliveries.length;
+  const totalQuantityDelivered = deliveries.reduce(
+    (acc, d) => acc + Number(d.total_delivery_quantity || 0),
+    0
   );
-
-  const getReceiptStatusBadge = (status) => {
-    switch (status) {
-      case 'Fully Received':
-      case 'Accepted':
-        return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-      case 'Partially Received':
-      case 'Accepted with Remarks':
-        return 'bg-amber-100 text-amber-800 border border-amber-200';
-      case 'Short Received':
-        return 'bg-orange-100 text-orange-800 border border-orange-200';
-      case 'Excess Received':
-        return 'bg-blue-100 text-blue-800 border border-blue-200';
-      case 'Damaged Material Reported':
-        return 'bg-rose-100 text-rose-800 border border-rose-200';
-      case 'Direct Delivery':
-        return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
-      case 'Pending Receipt':
-      default:
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
-    }
-  };
+  const activeProjectsDelivering = new Set(deliveries.map((d) => d.project_id)).size;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Truck size={22} className="text-blue-600" />
-            Deliveries
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Truck className="text-blue-600 w-6 h-6" />
+            Delivery Management
           </h1>
-          <p className="text-xs text-gray-500">Track outward shipments, dispatch quantities, and delivery status</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Finished goods dispatch challans to clients with automatic stock outward and balance tracking.
+          </p>
         </div>
 
-        <button
-          onClick={onAddNew}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition cursor-pointer"
-        >
-          <Plus size={16} /> New Delivery
-        </button>
-      </div>
-
-      {/* 2 MAIN TABS: Site Material vs In-House / Direct Delivery */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3">
-        <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+        <div className="flex items-center gap-2">
           <button
-            type="button"
-            onClick={() => { setActiveTab('site_material'); setCurrentPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition cursor-pointer ${activeTab === 'site_material'
-                ? 'bg-white text-blue-600 shadow-sm border border-gray-200/60'
-                : 'text-gray-600 hover:text-gray-900'
-              }`}
+            onClick={fetchDeliveriesList}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-xs transition-all cursor-pointer"
           >
-            <Package size={15} />
-            <span>Site Delivery (Items)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'site_material' ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'
-              }`}>
-              {siteMaterialCount}
-            </span>
+            <RefreshCw size={14} className={loading ? "animate-spin text-blue-600" : ""} />
+            Refresh
           </button>
 
-          <button
-            type="button"
-            onClick={() => { setActiveTab('in_house'); setCurrentPage(1); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition cursor-pointer ${activeTab === 'in_house'
-                ? 'bg-white text-blue-600 shadow-sm border border-gray-200/60'
-                : 'text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            <Factory size={15} />
-            <span>Direct Product Delivery (Finished Goods)</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'in_house' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-200 text-gray-700'
-              }`}>
-              {inHouseCount}
-            </span>
-          </button>
-        </div>
-
-        <span className="text-xs text-gray-500">
-          Showing <strong className="text-gray-800 font-semibold">{filteredDeliveries.length}</strong> {activeTab === 'in_house' ? 'direct product' : 'site material'} shipments
-        </span>
-      </div>
-
-      {/* FILTER BAR CARD */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5 shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* SEARCH INPUT */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
-              Search Delivery
-            </label>
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                name="search"
-                value={filters.search}
-                onChange={handleFilterChange}
-                placeholder="Delivery No, Customer, Phone..."
-                className="w-full bg-white text-gray-800 text-xs border border-gray-300 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* DISPATCH STATUS FILTER */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
-              Dispatch Status
-            </label>
-            <select
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="w-full bg-white text-gray-800 text-xs border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Dispatch Statuses</option>
-              <option value="Partially Delivered">Partially Delivered</option>
-              <option value="Fully Delivered">Fully Delivered</option>
-            </select>
-          </div>
-
-          {/* RECEIPT STATUS FILTER / DELIVERY MODE */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
-              {activeTab === 'in_house' ? 'Delivery Mode' : 'Site Receipt Status'}
-            </label>
-            {activeTab === 'in_house' ? (
-              <div className="w-full bg-gray-50 text-indigo-700 font-semibold text-xs border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                <Factory size={13} /> Direct Customer Delivery
-              </div>
-            ) : (
-              <select
-                name="receiptStatus"
-                value={filters.receiptStatus}
-                onChange={handleFilterChange}
-                className="w-full bg-white text-gray-800 text-xs border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Receipt Statuses</option>
-                <option value="Pending Receipt">Pending Receipt</option>
-                <option value="Partially Received">Partially Received</option>
-                <option value="Fully Received">Fully Received</option>
-                <option value="Short Received">Short Received</option>
-                <option value="Excess Received">Excess Received</option>
-                <option value="Damaged Material Reported">Damaged Material Reported</option>
-              </select>
-            )}
-          </div>
-
-          {/* DISPATCH DATE FILTER */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1">
-              Dispatch Date
-            </label>
-            <input
-              type="date"
-              name="dispatchDate"
-              value={filters.dispatchDate}
-              onChange={handleFilterChange}
-              className="w-full bg-white text-gray-800 text-xs border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* CLEAR FILTERS */}
-        {hasActiveFilters && (
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
-            <span className="text-[11px] text-gray-500">
-              Filtered: <strong className="text-gray-800">{filteredDeliveries.length}</strong> of {deliveries.length} records
-            </span>
+          {canDispatch && (
             <button
-              type="button"
-              onClick={handleClearFilters}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
+              onClick={onAddNew}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-all cursor-pointer"
             >
-              <X size={14} /> Clear Filters
+              <Plus size={15} />
+              New Delivery Challan
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* TABLE CARD */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-xs text-gray-500">Loading delivery records...</div>
-        ) : filteredDeliveries.length === 0 ? (
-          <div className="p-8 text-center text-xs text-gray-500">
-            {hasActiveFilters
-              ? 'No deliveries match the selected filters.'
-              : activeTab === 'in_house'
-                ? 'No direct product deliveries found.'
-                : 'No site material deliveries found.'}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-slate-500">Total Delivery Challans</span>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{totalDeliveriesCount}</p>
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs min-w-[850px]">
-                <thead className="bg-gray-100 text-gray-600 font-bold uppercase text-[10px] border-b border-gray-200">
-                  <tr>
-                    <th className="py-3 px-4">Delivery No</th>
-                    <th className="py-3 px-4">Customer</th>
-                    <th className="py-3 px-4">Dispatch Date</th>
-                    <th className="py-3 px-4 text-right">
-                      {activeTab === 'in_house' ? 'Ordered Product Qty' : 'Ordered Qty'}
-                    </th>
-                    <th className="py-3 px-4 text-right">
-                      {activeTab === 'in_house' ? 'Dispatched Product Qty' : 'Delivered Qty'}
-                    </th>
-                    <th className="py-3 px-4 text-center">Dispatch Status</th>
-                    <th className="py-3 px-4 text-center">
-                      {activeTab === 'in_house' ? 'Delivery Mode' : 'Site Receipt Status'}
-                    </th>
-                    <th className="py-3 px-4 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {paginatedDeliveries.map((item) => {
-                    const totalOrd = Number(item.total_ordered_qty || item.order_total_ordered_qty || 0);
-                    const cumDel = Number(item.cumulative_delivered_qty ?? item.total_delivered_qty ?? 0);
-                    const isOrderFullyDelivered =
-                      item.status === 'Fully Delivered' ||
-                      item.status === 'Delivered' ||
-                      (totalOrd > 0 && cumDel >= totalOrd);
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <Truck size={20} />
+          </div>
+        </div>
 
-                    return (
-                      <tr key={item.id} className="hover:bg-gray-50/70">
-                        <td className="py-3 px-4 font-bold text-blue-600">{item.challan_no}</td>
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-gray-800">{item.customer_name}</div>
-                          <div className="text-[11px] text-gray-400">{item.customer_phone || '-'}</div>
-                        </td>
-                        <td className="py-3 px-4 text-gray-600">
-                          {formatDate(item.dispatch_date)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="font-mono font-bold text-gray-800 text-sm">{totalOrd}</div>
-                          <div className="text-[10px] text-gray-400">
-                            {activeTab === 'in_house' ? 'Total Products' : 'Total Order'}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex flex-col items-end">
-                            <div className="font-mono font-bold text-gray-900 text-sm">
-                              {item.total_delivered_qty}
-                              <span className="text-[10px] text-gray-400 font-normal ml-1">in delivery</span>
-                            </div>
+        <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-emerald-600">Total Units Dispatched</span>
+            <p className="text-2xl font-bold text-emerald-700 mt-1 font-mono">
+              {totalQuantityDelivered.toLocaleString()} Nos
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <Package size={20} />
+          </div>
+        </div>
 
-                            {Number(item.prior_delivered_qty || 0) > 0 && (
-                              <div className="text-[10px] text-gray-500 font-medium mt-0.5">
-                                Prev sent: <span className="font-mono font-semibold text-gray-700">{item.prior_delivered_qty}</span>
-                              </div>
-                            )}
+        <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-indigo-600">Active Client Projects</span>
+            <p className="text-2xl font-bold text-indigo-700 mt-1 font-mono">
+              {activeProjectsDelivering}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Building2 size={20} />
+          </div>
+        </div>
+      </div>
 
-                            <div className="mt-1">
-                              {isOrderFullyDelivered ? (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  Total: {Math.min(cumDel, totalOrd)}/{totalOrd} (100%)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                  Total: {cumDel}/{totalOrd} ({Math.max(0, totalOrd - cumDel)} left)
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${isOrderFullyDelivered
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-amber-100 text-amber-700'
-                              }`}
-                          >
-                            {isOrderFullyDelivered ? 'Fully Delivered' : (item.status || 'Partially Delivered')}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {item.delivery_type === 'in_house' || item.receipt_status === 'Direct Delivery' ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">
-                                <Factory size={11} /> Direct Delivery
-                              </span>
-                              <span className="text-[10px] text-gray-400">Manufactured Product</span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-1">
-                              <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${getReceiptStatusBadge(
-                                  item.receipt_status
-                                )}`}
-                              >
-                                {item.receipt_status || 'Pending Receipt'}
-                              </span>
+      {/* Search & Filter Bar */}
+      <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <TableSearch
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search by challan no, project, client, vehicle..."
+          className="w-full sm:w-80"
+        />
 
-                              {item.received_by_engineer_name && (
-                                <span className="text-[10px] text-gray-400 font-medium">
-                                  by {item.received_by_engineer_name}
-                                </span>
-                              )}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter size={15} className="text-slate-400 shrink-0" />
+          <select
+            value={statusFilter}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="w-full sm:w-48 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+          >
+            <option value="all">All Statuses</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Partially Delivered">Partially Delivered</option>
+            <option value="Pending">Pending</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
 
-                              {item.engineer_remarks && (
-                                <div
-                                  className="mt-0.5 max-w-[200px] bg-amber-50/90 border border-amber-200 text-amber-900 rounded px-2 py-0.5 text-[10px] text-left flex items-start gap-1 shadow-2xs"
-                                  title={`Site Engineer Message: "${item.engineer_remarks}"`}
-                                >
-                                  <MessageSquare size={10} className="text-amber-600 shrink-0 mt-0.5" />
-                                  <span className="truncate italic">"{item.engineer_remarks}"</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-center">
+      {/* Deliveries Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200">
+                <th className="py-3.5 px-4">Challan No.</th>
+                <th className="py-3.5 px-4">Project</th>
+                <th className="py-3.5 px-4">Client</th>
+                <th className="py-3.5 px-4">Delivery Date</th>
+                <th className="py-3.5 px-4 text-right">Dispatched Qty</th>
+                <th className="py-3.5 px-4">Vehicle / Driver</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <Loader2 className="animate-spin w-6 h-6 mx-auto mb-2 text-blue-500" />
+                    Loading deliveries...
+                  </td>
+                </tr>
+              ) : deliveries.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    No delivery records found.
+                  </td>
+                </tr>
+              ) : (
+                deliveries.map((del) => (
+                  <tr key={del.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-blue-600">
+                      {del.delivery_number || `DEL-${del.id}`}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-slate-900">
+                      <div>{del.project_name || `Project #${del.project_id}`}</div>
+                      {del.project_code && (
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          [{del.project_code}]
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 font-medium text-slate-800">
+                      {del.client_name || "Direct Client"}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {del.delivery_date ? new Date(del.delivery_date).toLocaleDateString("en-IN") : "N/A"}
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-slate-900 font-mono">
+                      {Number(del.total_delivery_quantity || 0).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-slate-700">
+                      <div className="font-semibold">{del.vehicle_details || "Direct Transport"}</div>
+                      {del.delivery_person && (
+                        <span className="text-[10px] text-slate-400">{del.delivery_person}</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                          del.status === "Delivered"
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                            : del.status === "Cancelled"
+                            ? "bg-rose-100 text-rose-800 border-rose-300"
+                            : "bg-blue-100 text-blue-800 border-blue-300"
+                        }`}
+                      >
+                        {del.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleView(del)}
+                          className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="View / Print Delivery Challan"
+                        >
+                          <Eye size={15} />
+                        </button>
+
+                        {del.status !== "Cancelled" && (
                           <button
-                            onClick={() => handleViewChallan(item)}
-                            title="View Delivery Details"
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                            onClick={() => handleOpenCancel(del)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Cancel Delivery Challan"
                           >
-                            <Eye size={16} />
+                            <XCircle size={15} />
                           </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-            {/* Pagination Controls */}
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-            />
-          </>
-        )}
+        {/* Common Pagination */}
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pagination.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
 
-      {/* View Delivery Challan Modal */}
+      {/* Common Cancel / Delete Confirmation */}
+      <DeleteConfirmation
+        open={cancelModalOpen}
+        title="Cancel Delivery Challan?"
+        itemName={deliveryToCancel?.delivery_number}
+        message="Are you sure you want to cancel this delivery challan? This will restore Finished Goods inventory in the store."
+        confirmText="Cancel Challan"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => {
+          setCancelModalOpen(false);
+          setDeliveryToCancel(null);
+        }}
+        loading={cancelLoading}
+      />
+
+      {/* View Challan Modal */}
       <ViewDeliveryChallanModal
         isOpen={isViewModalOpen}
         onClose={() => {
           setIsViewModalOpen(false);
-          setSelectedChallan(null);
+          setSelectedDelivery(null);
         }}
-        challan={selectedChallan}
+        delivery={selectedDelivery}
       />
     </div>
   );

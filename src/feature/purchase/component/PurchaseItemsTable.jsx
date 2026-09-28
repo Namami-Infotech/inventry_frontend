@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { getAllStoreItems } from '../../storeItems/services/storeItemService';
-import { getActiveBrands } from '../../brand/services/brandService';
 
 export const PurchaseItemsTable = ({ items, addItemRow, removeItemRow, updateItemRow, errors = {} }) => {
   const [storeItems, setStoreItems] = useState([]);
-  const [brands, setBrands] = useState([]);
   const [loadingItems, setLoadingItems] = useState(true);
-  const [loadingBrands, setLoadingBrands] = useState(true);
 
   useEffect(() => {
-    const fetchStoreItemsAndBrands = async () => {
+    const fetchStoreItems = async () => {
       try {
         setLoadingItems(true);
         const data = await getAllStoreItems();
@@ -38,24 +35,9 @@ export const PurchaseItemsTable = ({ items, addItemRow, removeItemRow, updateIte
       } finally {
         setLoadingItems(false);
       }
-
-      try {
-        setLoadingBrands(true);
-        const brandRes = await getActiveBrands();
-        const brandList = Array.isArray(brandRes)
-          ? brandRes
-          : Array.isArray(brandRes?.data)
-            ? brandRes.data
-            : [];
-        setBrands(brandList);
-      } catch (err) {
-        console.error('Failed to fetch brands for purchase entry:', err);
-      } finally {
-        setLoadingBrands(false);
-      }
     };
 
-    fetchStoreItemsAndBrands();
+    fetchStoreItems();
   }, []);
 
   const handleDigitInput = (id, field, rawValue, allowDecimal = true, maxVal = null) => {
@@ -99,8 +81,7 @@ export const PurchaseItemsTable = ({ items, addItemRow, removeItemRow, updateIte
           <thead className="bg-gray-100 text-gray-600 font-bold uppercase text-[10px] border-b border-gray-200">
             <tr>
               <th className="py-2.5 px-3 w-8 text-center">#</th>
-              <th className="py-2.5 px-3 min-w-[200px]">Item / Product Name *</th>
-              <th className="py-2.5 px-3 min-w-[130px]">Brand</th>
+              <th className="py-2.5 px-3 min-w-[220px]">Item / Product Name *</th>
               <th className="py-2.5 px-3 w-24 text-right">Quantity *</th>
               <th className="py-2.5 px-3 w-28 text-right">Rate (₹)</th>
               <th className="py-2.5 px-3 w-20 text-right">Tax (%)</th>
@@ -137,35 +118,12 @@ export const PurchaseItemsTable = ({ items, addItemRow, removeItemRow, updateIte
                       const id = storeItem.id || storeItem._id;
                       return (
                         <option key={id} value={id}>
-                          {name} {storeItem.category ? `(${storeItem.category})` : ''}
+                          {name}
                         </option>
                       );
                     })}
                     {item.itemName && !storeItems.some((s) => String(s.id) === String(item.item_id) || (s.item_name || s.name) === item.itemName) && (
                       <option value={item.itemName}>{item.itemName}</option>
-                    )}
-                  </select>
-                </td>
-                <td className="py-2.5 px-3">
-                  <select
-                    value={item.brand || ''}
-                    onChange={(e) => updateItemRow(item.id, 'brand', e.target.value)}
-                    className="w-full bg-white text-gray-900 border border-gray-300 rounded-md p-1.5 focus:ring-1 focus:ring-blue-500 outline-none text-xs font-medium"
-                  >
-                    <option value="">
-                      {loadingBrands ? 'Loading brands...' : '-- Select Brand --'}
-                    </option>
-                    {brands.map((b) => {
-                      const brandName = b.brand_name || b.name || b.brand;
-                      const brandId = b.brand_id || b.id || brandName;
-                      return (
-                        <option key={brandId} value={brandName}>
-                          {brandName}
-                        </option>
-                      );
-                    })}
-                    {item.brand && !brands.some((b) => (b.brand_name || b.name || b.brand) === item.brand) && (
-                      <option value={item.brand}>{item.brand}</option>
                     )}
                   </select>
                 </td>

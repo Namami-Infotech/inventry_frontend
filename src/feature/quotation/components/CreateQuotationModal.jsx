@@ -339,59 +339,15 @@ export const CreateQuotationModal = ({
               </div>
             </div>
 
-            {/* Order / Fulfilment Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block font-semibold text-gray-700 mb-1.5">Quotation / Fulfilment Type</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition ${
-                      orderType === 'in_house'
-                        ? 'border-purple-600 bg-purple-50/70 text-purple-900 font-bold'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="orderType"
-                      value="in_house"
-                      checked={orderType === 'in_house'}
-                      onChange={() => setOrderType('in_house')}
-                      className="hidden"
-                    />
-                    <Package size={16} className={orderType === 'in_house' ? 'text-purple-600' : 'text-gray-400'} />
-                    <span>In-House Direct Product</span>
-                  </label>
-
-                  <label
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition ${
-                      orderType === 'site_assembly'
-                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="orderType"
-                      value="site_assembly"
-                      checked={orderType === 'site_assembly'}
-                      onChange={() => setOrderType('site_assembly')}
-                      className="hidden"
-                    />
-                    <Wrench size={16} className={orderType === 'site_assembly' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span>Site Assembly Project</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Project / Title Name */}
+            {/* Subject / Title */}
+            <div className="pt-2">
               <div>
                 <label className="block font-semibold text-gray-700 mb-1">
-                  {orderType === 'site_assembly' ? 'Project / Site Name' : 'Subject / Order Title'}
+                  Subject / Order Title
                 </label>
                 <input
                   type="text"
-                  placeholder={orderType === 'site_assembly' ? 'e.g. 50kW Rooftop Solar Project - Noida' : 'e.g. In-House Solar Mounting Delivery'}
+                  placeholder="e.g. Standard Production Supply"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"

@@ -22,13 +22,13 @@ export const EmployeeModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex justify-center items-center p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden border border-gray-200 animate-in zoom-in-95">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-gray-200 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex justify-between items-center px-5 py-4 bg-gray-900 text-white">
+        <div className="flex justify-between items-center px-5 py-4 bg-gray-900 text-white shrink-0">
           <h2 className="text-sm font-bold flex items-center gap-2">
             <Users size={16} />
-            {editingId ? 'Edit Employee Profile' : 'Register New Employee'}
+            {editingId ? 'Edit Employee Details' : 'Register New Employee'}
           </h2>
 
           <button
@@ -41,9 +41,8 @@ export const EmployeeModal = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={onSubmit} className="p-5 space-y-4 text-xs">
+        <form onSubmit={onSubmit} className="p-5 space-y-4 text-xs overflow-y-auto custom-scrollbar flex-1">
           
-          {/* Error */}
           {formError && (
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
               {formError}
@@ -55,9 +54,8 @@ export const EmployeeModal = ({
             {/* Employee Code */}
             <div>
               <label className="block font-medium text-gray-700 mb-1">
-                Employee Code {editingId ? '' : '(Auto-generated)'}
+                Employee Code {editingId ? '' : '(Auto-assigned)'}
               </label>
-
               <input
                 type="text"
                 name="employee_code"
@@ -67,11 +65,6 @@ export const EmployeeModal = ({
                 disabled
                 className={`${inputClass} bg-gray-100 text-gray-600 font-semibold cursor-not-allowed`}
               />
-              {!editingId && (
-                <span className="text-[10px] text-gray-400 mt-0.5 block">
-                  Code format is auto-assigned (e.g. EMP0001)
-                </span>
-              )}
             </div>
 
             {/* Full Name */}
@@ -79,23 +72,15 @@ export const EmployeeModal = ({
               <label className="block font-medium text-gray-700 mb-1">
                 Full Name *
               </label>
-
               <input
                 type="text"
                 name="employee_name"
                 placeholder="Full Name"
                 value={formData.employee_name || ''}
                 onChange={onChange}
-                readOnly={!!editingId}
                 required
-                className={`${inputClass} ${editingId ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
+                className={inputClass}
               />
-
-              {editingId && (
-                <span className="text-[10px] text-gray-400 mt-0.5 block">
-                  Employee name cannot be changed.
-                </span>
-              )}
             </div>
 
             {/* Email */}
@@ -103,7 +88,6 @@ export const EmployeeModal = ({
               <label className="block font-medium text-gray-700 mb-1">
                 Email Address *
               </label>
-
               <input
                 type="email"
                 name="email_id"
@@ -120,16 +104,14 @@ export const EmployeeModal = ({
               <label className="block font-medium text-gray-700 mb-1">
                 Mobile Number *
               </label>
-
               <input
                 type="text"
                 name="mobile_number"
-                placeholder="Mobile Number"
+                placeholder="10-digit Mobile Number"
                 value={formData.mobile_number || ''}
                 required
                 onChange={(e) => {
                   const value = e.target.value;
-                  // Allow only numbers and maximum 10 digits
                   if (/^\d{0,10}$/.test(value)) {
                     onChange(e);
                   }
@@ -138,18 +120,13 @@ export const EmployeeModal = ({
                 inputMode="numeric"
                 className={inputClass}
               />
-
-              <span className="text-[10px] text-gray-400 mt-0.5 block">
-                Enter exactly 10 digits
-              </span>
             </div>
 
             {/* System Role */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block font-medium text-gray-700 mb-1">
                 System Role *
               </label>
-
               <select
                 name="role"
                 value={formData.role || ''}
@@ -157,17 +134,72 @@ export const EmployeeModal = ({
                 required
                 className={selectClass}
               >
-                <option value="">-- Select a Role --</option>
+                <option value="">-- Select Role --</option>
                 {roles.map((role) => (
-                  <option
-                    key={role}
-                    value={role}
-                    className="text-gray-900 bg-white"
-                  >
+                  <option key={role} value={role}>
                     {role}
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Department */}
+            <div>
+              <label className="block font-medium text-gray-700 mb-1">
+                Department
+              </label>
+              <input
+                type="text"
+                name="department"
+                placeholder="e.g. Production, Store, Sales, Operations"
+                value={formData.department || ''}
+                onChange={onChange}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Designation */}
+            <div>
+              <label className="block font-medium text-gray-700 mb-1">
+                Designation
+              </label>
+              <input
+                type="text"
+                name="designation"
+                placeholder="e.g. Senior Shift Incharge, Quality Operator"
+                value={formData.designation || ''}
+                onChange={onChange}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Joining Date */}
+            <div>
+              <label className="block font-medium text-gray-700 mb-1">
+                Joining Date
+              </label>
+              <input
+                type="date"
+                name="joining_date"
+                value={formData.joining_date ? String(formData.joining_date).split('T')[0] : ''}
+                onChange={onChange}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Address */}
+            <div className="md:col-span-2">
+              <label className="block font-medium text-gray-700 mb-1">
+                Address
+              </label>
+              <textarea
+                name="address"
+                rows={2}
+                placeholder="Residential or work location address"
+                value={formData.address || ''}
+                onChange={onChange}
+                className={inputClass}
+              />
             </div>
 
             {/* Password */}
@@ -177,7 +209,6 @@ export const EmployeeModal = ({
                   ? 'Password (Leave Blank to Keep Current)'
                   : 'Login Password'}
               </label>
-
               <input
                 type="password"
                 name="password_hash"
